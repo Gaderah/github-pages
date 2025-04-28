@@ -158,32 +158,189 @@
     </div>
     <!-- end wallet -->
     <!-- about -->
-    <div id="about" class="about">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-12">
-                    <div class="about_border">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="titlepage text_align_left">
-                                    <h2>About Us</h2>
-                                </div>
-                                <div class="about_text">
-                                    <p>It is a long established fact that a reader will be distracted bIt is a long established fact that a reader will be distracted by y It is a long established fact that a reader will be distracted by It is a long established fact that a reader will be distracted by </p>
-                                    <a class="read_more" href="about.html">Read More</a>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="about_img">
-                                    <figure><img class="img_responsive" src="images/about2.png" alt="#" /></figure>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+
+        <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>BluGo Token Sale & Staking</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white font-sans">
+  <div class="container mx-auto p-4">
+    <h1 class="text-3xl font-bold mb-6">BluGo Token Sale & Staking</h1>
+
+    <div class="mb-4">
+      <button onclick="connectWallet()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Connect Wallet</button>
+      <span id="walletAddress" class="ml-4"></span>
     </div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="bg-gray-800 p-4 rounded">
+        <h2 class="text-xl font-bold mb-2">Buy BLG</h2>
+        <input type="number" id="buyAmount" placeholder="Amount of BLG" class="w-full p-2 text-black rounded mb-2">
+        <button onclick="buyBLG()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full">Buy</button>
+      </div>
+
+      <div class="bg-gray-800 p-4 rounded">
+        <h2 class="text-xl font-bold mb-2">Stake BLG</h2>
+        <input type="number" id="stakeAmount" placeholder="Amount to Stake" class="w-full p-2 text-black rounded mb-2">
+        <button onclick="stakeTokens()" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded w-full">Stake</button>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <button onclick="withdrawStake()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Withdraw Stake</button>
+    </div>
+
+    <div id="status" class="mt-4 text-sm text-gray-300"></div>
+  </div>
+
+<script>
+let web3;
+let account;
+const FIXED_CONTRACT_ADDRESS = "0xB7c9b8a715b5feD7195A00deE19088208aEc7229";
+const BLG_TOKEN_ADDRESS = "0xd498b276EE8Fb629e1B4103491585AD8f1a4bD53";
+const USDT_TOKEN_ADDRESS = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
+
+let fixedContract, blgToken, usdtToken;
+
+window.addEventListener('load', async () => {
+  if (window.ethereum) {
+    web3 = new Web3(window.ethereum);
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      if (accounts.length > 0) {
+        account = accounts[0];
+        document.getElementById("walletAddress").textContent = `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
+        await initContracts();
+      }
+    } catch (err) {
+      console.error("Error getting accounts:", err);
+    }
+
+    window.ethereum.on('accountsChanged', (accounts) => {
+      if (accounts.length > 0) {
+        account = accounts[0];
+        document.getElementById("walletAddress").textContent = `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
+        showStatus("Wallet changed.");
+      }
+    });
+  } else {
+    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
+  }
+});
+
+
+function initContracts() {
+  fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
+  blgToken = new web3.eth.Contract(APPROVE_ABI, BLG_TOKEN_ADDRESS);
+  usdtToken = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
+}
+
+async function connectWallet() {
+  if (typeof window.ethereum === "undefined") {
+    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
+    return;
+  }
+
+  try {
+    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+    const account = accounts[0];
+    console.log("Connected wallet:", account);
+    if (!accounts || !accounts.length) {
+      showStatus("No account found or connection rejected.", true);
+      return;
+    }
+    document.getElementById("walletAddress").textContent = `Connected: ${account.slice(0, 6)}...  ${account.slice(-4)}`;
+    showStatus("Wallet connected.");
+    initContracts();
+  } catch (err) {
+    console.error("Wallet connection error:", err);
+    showStatus("Wallet connection failed: " + err.message, true);
+  }
+}
+
+const FIXED_CONTRACT_ABI = [
+  { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "buyBLG", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "stake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [], "name": "withdrawStake", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
+];
+
+const APPROVE_ABI = [
+  {
+    "constant": false,
+    "inputs": [
+      { "name": "spender", "type": "address" },
+      { "name": "amount", "type": "uint256" }
+    ],
+    "name": "approve",
+    "outputs": [{ "name": "", "type": "bool" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];
+
+async function buyBLG() {
+  const amount = parseFloat(document.getElementById("buyAmount").value);
+  if (isNaN(amount) || amount <= 0) return;
+
+  const pricePerBLG = 2 * 10**6;
+  const feePercent = 2;
+  const totalUSDT = BigInt(amount * 1e6);
+  const fee = totalUSDT * BigInt(feePercent) / BigInt(100);
+  const totalWithFee = totalUSDT + fee;
+
+  try {
+    await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, totalWithFee.toString()).send({ from: account });
+    await fixedContract.methods.buyBLG(amount).send({ from: account });
+    showStatus("BLG purchase successful.");
+  } catch (error) {
+    console.error(error);
+    showStatus("Purchase failed.", true);
+  }
+}
+
+async function stakeTokens() {
+  const amount = parseFloat(document.getElementById("stakeAmount").value);
+  if (isNaN(amount) || amount <= 0) return;
+  const stakeAmount = web3.utils.toWei(amount.toString(), 'ether');
+
+  try {
+    await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmount.toString()).send({ from: account });
+    await fixedContract.methods.stake(stakeAmount.toString()).send({ from: account });
+    showStatus("Staking successful.");
+  } catch (error) {
+    console.error(error);
+    showStatus("Staking failed.", true);
+  }
+}
+
+async function withdrawStake() {
+  try {
+    await fixedContract.methods.withdrawStake().send({ from: account });
+    showStatus("Withdraw successful.");
+  } catch (error) {
+    console.error(error);
+    showStatus("Withdraw failed.", true);
+  }
+}
+
+function showStatus(message, isError = false) {
+  const statusDiv = document.getElementById("status");
+  statusDiv.innerHTML = message;
+  statusDiv.className = isError ? 'text-red-400' : 'text-green-400';
+}
+</script>
+</body>
+</html>
+
+                            
     <!-- end about -->
     <!-- graf -->
     <div class="graf">
