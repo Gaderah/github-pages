@@ -83,26 +83,28 @@
                         <h2>Contact Us</h2>
                     </div>
                 </div>
+                
                 <div class=" col-md-10 offset-md-1">
-                    <form id="request" class="main_form">
-                        <div class="row">
-                            <div class="col-md-6 ">
-                                <input class="contactus" placeholder="Full Name" type="type" name="Full Name">
-                            </div>
-                            <div class="col-md-6">
-                                <input class="contactus" placeholder="Email" type="type" name="Email">
-                            </div>
-                            <div class="col-md-6">
-                                <input class="contactus" placeholder="Phone number" type="type" name="Phone number">
-                            </div>
-                            <div class="col-md-6">
-                                <textarea class="textarea" placeholder="Message" type="type" Message="Name"></textarea>
-                            </div>
-                            <div class="col-md-12">
-                                <button class="send_btn">Send</button>
-                            </div>
-                        </div>
-                    </form>
+                    <form action="https://formspree.io/f/mrbqeyzr" method="POST" class="main_form" id="request">
+    <div class="row">
+        <div class="col-md-6 ">
+            <input class="contactus" placeholder="Full Name" type="text" name="name" required>
+        </div>
+        <div class="col-md-6">
+            <input class="contactus" placeholder="Email" type="email" name="email" required>
+        </div>
+        <div class="col-md-6">
+            <input class="contactus" placeholder="Phone number" type="text" name="phone">
+        </div>
+        <div class="col-md-6">
+            <textarea class="textarea" placeholder="Message" name="message" required></textarea>
+        </div>
+        <div class="col-md-12">
+            <button class="send_btn" type="submit">Send</button>
+        </div>
+    </div>
+</form>
+
                 </div>
             </div>
         </div>
