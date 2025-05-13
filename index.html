@@ -157,7 +157,7 @@
 
 
         
-        <!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -189,11 +189,12 @@
         <h2 class="text-xl font-bold mb-2">Stake BLG</h2>
         <input type="number" id="stakeAmount" placeholder="Amount to Stake" class="w-full p-2 text-black rounded mb-2">
         <button onclick="stakeTokens()" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded w-full">Stake</button>
+        <p id="stakedInfo" class="mt-2 text-sm text-green-400">Staked: --</p>
       </div>
     </div>
 
     <div class="mt-4">
-      <button onclick="withdrawStake()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Withdraw Stake</button>
+      <button onclick="checkWithdrawalStatus()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Withdraw Stake</button>
     </div>
 
     <div id="status" class="mt-4 text-sm text-gray-300"></div>
@@ -201,73 +202,20 @@
 
 <script>
 let web3;
-let account;
+let userAccount;
 const FIXED_CONTRACT_ADDRESS = "0xB7c9b8a715b5feD7195A00deE19088208aEc7229";
 const BLG_TOKEN_ADDRESS = "0xd498b276EE8Fb629e1B4103491585AD8f1a4bD53";
 const USDT_TOKEN_ADDRESS = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
+const ownerAddress = "0x886B317b6AB2a5a6Df46C27f445DE858a22f678B";
 
 let fixedContract, blgToken, usdtToken;
-
-window.addEventListener('load', async () => {
-  if (window.ethereum) {
-    web3 = new Web3(window.ethereum);
-    try {
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-      if (accounts.length > 0) {
-        account = accounts[0];
-        document.getElementById("walletAddress").textContent = `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
-        await initContracts();
-      }
-    } catch (err) {
-      console.error("Error getting accounts:", err);
-    }
-
-    window.ethereum.on('accountsChanged', (accounts) => {
-      if (accounts.length > 0) {
-        account = accounts[0];
-        document.getElementById("walletAddress").textContent = `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
-        showStatus("Wallet changed.");
-      }
-    });
-  } else {
-    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
-  }
-});
-
-
-function initContracts() {
-  fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
-  blgToken = new web3.eth.Contract(APPROVE_ABI, BLG_TOKEN_ADDRESS);
-  usdtToken = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
-}
-
-async function connectWallet() {
-  if (typeof window.ethereum === "undefined") {
-    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
-    return;
-  }
-
-  try {
-    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-    const account = accounts[0];
-    console.log("Connected wallet:", account);
-    if (!accounts || !accounts.length) {
-      showStatus("No account found or connection rejected.", true);
-      return;
-    }
-    document.getElementById("walletAddress").textContent = `Connected: ${account.slice(0, 6)}...  ${account.slice(-4)}`;
-    showStatus("Wallet connected.");
-    initContracts();
-  } catch (err) {
-    console.error("Wallet connection error:", err);
-    showStatus("Wallet connection failed: " + err.message, true);
-  }
-}
 
 const FIXED_CONTRACT_ABI = [
   { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "buyBLG", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
   { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "stake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-  { "inputs": [], "name": "withdrawStake", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
+  { "inputs": [], "name": "withdrawStake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "staked", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
+  { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getStakeInfo", "outputs": [ { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "uint256", "name": "timestamp", "type": "uint256" } ], "stateMutability": "view", "type": "function" }
 ];
 
 const APPROVE_ABI = [
@@ -279,64 +227,93 @@ const APPROVE_ABI = [
     ],
     "name": "approve",
     "outputs": [{ "name": "", "type": "bool" }],
-    "stateMutability": "nonpayable",
     "type": "function"
   }
 ];
 
-async function buyBLG() {
-  const amount = parseFloat(document.getElementById("buyAmount").value);
-  if (isNaN(amount) || amount <= 0) return;
+const STAKING_DURATION = 18 * 24 * 60 * 60; // 18 days
 
-  const pricePerBLG = 2 * 10**6;
-  const feePercent = 2;
-  const totalUSDT = BigInt(amount * 1e6);
-  const fee = totalUSDT * BigInt(feePercent) / BigInt(100);
-  const totalWithFee = totalUSDT + fee;
+async function connectWallet() {
+  if (window.ethereum) {
+    web3 = new Web3(window.ethereum);
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+    const accounts = await web3.eth.getAccounts();
+    userAccount = accounts[0];
+    document.getElementById("walletAddress").textContent = userAccount;
 
-  try {
-    await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, totalWithFee.toString()).send({ from: account });
-    await fixedContract.methods.buyBLG(amount).send({ from: account });
-    showStatus("BLG purchase successful.");
-  } catch (error) {
-    console.error(error);
-    showStatus("Purchase failed.", true);
+    fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
+    blgToken = new web3.eth.Contract(APPROVE_ABI, BLG_TOKEN_ADDRESS);
+    usdtToken = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
+
+    updateStakedInfo();
+  } else {
+    alert("MetaMask not detected.");
   }
+}
+
+async function buyBLG() {
+  const amount = document.getElementById("buyAmount").value;
+  if (!amount) return alert("Enter amount");
+
+  const usdtAmount = web3.utils.toWei((amount * 2).toString(), "mwei"); // USDT uses 6 decimals
+
+  await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, usdtAmount).send({ from: userAccount });
+  await fixedContract.methods.buyBLG(web3.utils.toWei(amount, "ether")).send({ from: userAccount });
+
+  showStatus("BLG purchase successful!");
 }
 
 async function stakeTokens() {
-  const amount = parseFloat(document.getElementById("stakeAmount").value);
-  if (isNaN(amount) || amount <= 0) return;
-  const stakeAmount = web3.utils.toWei(amount.toString(), 'ether');
+  const amount = document.getElementById("stakeAmount").value;
+  if (!amount) return alert("Enter stake amount");
+
+  const weiAmount = web3.utils.toWei(amount, "ether");
+
+  await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, weiAmount).send({ from: userAccount });
+  await fixedContract.methods.stake(weiAmount).send({ from: userAccount });
+
+  showStatus("Stake successful!");
+  updateStakedInfo();
+}
+
+async function updateStakedInfo() {
+  const amount = await fixedContract.methods.staked(userAccount).call();
+  const formatted = web3.utils.fromWei(amount, "ether");
+  document.getElementById("stakedInfo").textContent = `Staked: ${formatted} BLG`;
+}
+
+async function checkWithdrawalStatus() {
+  const warnedKey = `warned-${userAccount}`;
+  const stakeInfo = await fixedContract.methods.getStakeInfo(userAccount).call();
+  const stakeTimestamp = parseInt(stakeInfo.timestamp);
+  const now = Math.floor(Date.now() / 1000);
+  const hasPassed = now - stakeTimestamp >= STAKING_DURATION;
+
+  if (!hasPassed && !localStorage.getItem(warnedKey)) {
+    const confirmed = confirm("Withdrawing early will trigger a penalty. Do you want to proceed?");
+    if (!confirmed) return;
+    localStorage.setItem(warnedKey, "true");
+  }
 
   try {
-    await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmount.toString()).send({ from: account });
-    await fixedContract.methods.stake(stakeAmount.toString()).send({ from: account });
-    showStatus("Staking successful.");
-  } catch (error) {
-    console.error(error);
-    showStatus("Staking failed.", true);
+    await fixedContract.methods.withdrawStake().send({ from: userAccount });
+    showStatus("Withdrawal complete.");
+    updateStakedInfo();
+  } catch (err) {
+    console.error(err);
+    showStatus("Withdrawal failed.", true);
   }
 }
 
-async function withdrawStake() {
-  try {
-    await fixedContract.methods.withdrawStake().send({ from: account });
-    showStatus("Withdraw successful.");
-  } catch (error) {
-    console.error(error);
-    showStatus("Withdraw failed.", true);
-  }
-}
-
-function showStatus(message, isError = false) {
+function showStatus(msg, isError = false) {
   const statusDiv = document.getElementById("status");
-  statusDiv.innerHTML = message;
-  statusDiv.className = isError ? 'text-red-400' : 'text-green-400';
+  statusDiv.innerHTML = msg;
+  statusDiv.className = isError ? "mt-4 text-sm text-red-400" : "mt-4 text-sm text-green-400";
 }
 </script>
 </body>
 </html>
+
 
 
 
