@@ -156,7 +156,7 @@
     <!-- about -->
 
 
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -217,7 +217,7 @@ const FIXED_CONTRACT_ABI = [
 { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "staked", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }
 ];
 
-const USDT_ABI = [
+const APPROVE_ABI = [
   {
     "constant": false,
     "inputs": [
@@ -225,7 +225,7 @@ const USDT_ABI = [
       { "name": "amount", "type": "uint256" }
     ],
     "name": "approve",
-    "outputs": [],
+    "outputs": [{ "name": "", "type": "bool" }],
     "stateMutability": "nonpayable",
     "type": "function"
   }
@@ -272,7 +272,7 @@ window.addEventListener('load', async () => {
       const accounts = await window.ethereum.request({ method: 'eth_accounts' });
       if (accounts.length > 0) {
         userAccount = accounts[0];
-        document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+        document.getElementById("walletAddress").textContent = Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)};
         await initContracts();
       }
     } catch (err) {
@@ -282,13 +282,13 @@ window.addEventListener('load', async () => {
     window.ethereum.on('accountsChanged', async (accounts) => {
       if (accounts.length > 0) {
         userAccount = accounts[0];
-        document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+        document.getElementById("walletAddress").textContent = Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)};
         showStatus("Wallet changed.");
         await updateStakedInfo();
       }
     });
   } else {
-    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
+    showStatus(MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>., true);
   }
 });
 
@@ -296,12 +296,12 @@ window.addEventListener('load', async () => {
 function initContracts() {
   fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
   blgToken = new web3.eth.Contract(APPROVE_ABI, BLG_TOKEN_ADDRESS);
-  usdtToken = new web3.eth.Contract(USDT_ABI, USDT_TOKEN_ADDRESS);
+  usdtToken = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
 }
 
 async function connectWallet() {
   if (typeof window.ethereum === "undefined") {
-    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
+    showStatus(MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>., true);
     return;
   }
 
@@ -313,7 +313,7 @@ async function connectWallet() {
       showStatus("No account found or connection rejected.", true);
       return;
     }
-    document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...  ${userAccount.slice(-4)}`;
+    document.getElementById("walletAddress").textContent = Connected: ${userAccount.slice(0, 6)}...  ${userAccount.slice(-4)};
     showStatus("Wallet connected.");
     initContracts();
     await updateStakedInfo();
@@ -331,7 +331,7 @@ async function updateStakedInfo() {
     const stakedAmount = await fixedContract.methods.staked(userAccount).call();
     const decimals = 18; // adjust if your token uses a different decimal
     const formatted = web3.utils.fromWei(stakedAmount.toString(), 'ether');
-    document.getElementById("stakedInfo").textContent = `Staked: ${formatted} BLG`;
+    document.getElementById("stakedInfo").textContent = Staked: ${formatted} BLG;
   } catch (error) {
     console.error("Error fetching staked amount:", error);
   }
@@ -375,7 +375,7 @@ async function getStakedAmount() {
   try {
     const stakeInfo = await fixedContract.methods.stakes(account).call();
     const stakedAmount = web3.utils.fromWei(stakeInfo.amount, 'ether');
-    document.getElementById("stakedInfo").textContent = `Staked: ${stakedAmount} BLG`;
+    document.getElementById("stakedInfo").textContent = Staked: ${stakedAmount} BLG;
   } catch (err) {
     console.error("Error fetching staked amount:", err);
     document.getElementById("stakedInfo").textContent = "Staked: Error";
@@ -401,7 +401,7 @@ try {
       const remaining = (stakeStart + Number(stakingDuration)) - now;
       const hoursLeft = Math.floor(remaining / 3600);
       const minsLeft = Math.floor((remaining % 3600) / 60);
-      alert(`⚠️ Withdrawal not allowed yet.\nYou must wait ${hoursLeft}h ${minsLeft}m to avoid penalties or failed transactions.`);
+      alert(⚠️ Withdrawal not allowed yet.\nYou must wait ${hoursLeft}h ${minsLeft}m to avoid penalties or failed transactions.);
       return;
     }
 
@@ -417,7 +417,6 @@ showStatus("Withdrawal transaction sent.");
     showStatus("Withdrawal failed: " + err.message, true);
   }
 }
-
 </script>
 </body>
 </html>
