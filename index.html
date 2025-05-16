@@ -189,6 +189,7 @@
         <input type="number" id="stakeAmount" placeholder="Amount to Stake" class="w-full p-2 text-black rounded mb-2">
         <button onclick="stakeTokens()" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded w-full">Stake</button>
 <p id="stakedInfo" class="mt-2 text-sm text-green-400">Staked: --</p>
+<p id="stakeTimestampInfo" class="mt-1 text-sm text-blue-300">Stake Timestamp: --</p>
      </div>
     </div>
 
@@ -214,8 +215,10 @@ const FIXED_CONTRACT_ABI = [
   { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "buyBLG", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
   { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "stake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
   { "inputs": [], "name": "withdrawStake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-{ "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "staked", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }
+{ "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "staked", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
+{ "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getStakeTimestamp", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }
 ];
+
 
 const APPROVE_ABI = [
   {
@@ -257,8 +260,10 @@ async function stakeTokens() {
   try {
     await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmount.toString()).send({ from: userAccount });
     await fixedContract.methods.stake(stakeAmount.toString()).send({ from: userAccount });
+    localStorage.setItem(`earlyLock_${userAccount}`, Date.now().toString());
     showStatus("Staking successful.");
     await updateStakedInfo();
+    await fetchStakeTimestamp();
   } catch (error) {
     console.error(error);
     showStatus("Staking failed.", true);
@@ -285,6 +290,7 @@ window.addEventListener('load', async () => {
         document.getElementById("walletAddress").textContent = Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)};
         showStatus("Wallet changed.");
         await updateStakedInfo();
+        await fetchStakeTimestamp();
       }
     });
   } else {
@@ -313,10 +319,11 @@ async function connectWallet() {
       showStatus("No account found or connection rejected.", true);
       return;
     }
-    document.getElementById("walletAddress").textContent = Connected: ${userAccount.slice(0, 6)}...  ${userAccount.slice(-4)};
+    document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)};`
     showStatus("Wallet connected.");
     initContracts();
     await updateStakedInfo();
+    await fetchStakeTimestamp();
   } catch (err) {
     console.error("Wallet connection error:", err);
     showStatus("Wallet connection failed: " + err.message, true);
@@ -331,35 +338,84 @@ async function updateStakedInfo() {
     const stakedAmount = await fixedContract.methods.staked(userAccount).call();
     const decimals = 18; // adjust if your token uses a different decimal
     const formatted = web3.utils.fromWei(stakedAmount.toString(), 'ether');
-    document.getElementById("stakedInfo").textContent = Staked: ${formatted} BLG;
+    document.getElementById("stakedInfo").textContent = `Staked: ${formatted} BLG`;
   } catch (error) {
     console.error("Error fetching staked amount:", error);
+    document.getElementById("stakedInfo").textContent = "Staked: --";
   }
+}
+
+async function fetchStakeTimestamp() {
+  if (!fixedContract || !userAccount) return;
+
+  try {
+    const timestamp = await fixedContract.methods.getStakeTimestamp(userAccount).call();
+    if (timestamp && timestamp > 0) {
+      const date = new Date(timestamp * 1000);
+      const formatted = date.toLocaleString();
+      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${formatted}`;
+    } else {
+      document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
+    }
+  } catch (error) {
+    console.error("Error fetching stake timestamp:", error);
+    document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
+  }
+}
+
+function showStatus(message, isError = false) {
+  const statusDiv = document.getElementById("status");
+  statusDiv.innerHTML = message;
+  statusDiv.classList.remove("text-green-400", "text-red-400");
+  statusDiv.classList.add(isError ? "text-red-400" : "text-green-400");
 }
 
 let withdrawalConfirmed = false;
+let earlyWithdrawLocked = {}; // simple in-memory lock tracking
+
 
 async function checkWithdrawalStatus() {
-  if (!withdrawalConfirmed) {
-    const userConfirmed = confirm("⚠️ Warning: Early withdrawal will lock your stake for 30 days.\n\nDo you want to continue?");
-    if (!userConfirmed) {
-      showStatus("Withdrawal cancelled by user.");
-      return;
-    }
-    withdrawalConfirmed = true;
+  if (!fixedContract || !userAccount) return;
+
+  const lockKey = `earlyLock_${userAccount}`;
+  const stakeTimestamp = parseInt(localStorage.getItem(lockKey), 10);
+  const now = Date.now();
+  const stakingDuration = 18 * 24 * 60 * 60 * 1000; // 18 days in ms
+
+  if (!stakeTimestamp || isNaN(stakeTimestamp)) {
+    showStatus("No stake lock timestamp found. Cannot verify withdrawal eligibility.", true);
+    return;
   }
 
-  await withdrawStake();
+  const unlockTime = stakeTimestamp + stakingDuration;
+
+  if (now < unlockTime) {
+    const timeLeft = unlockTime - now;
+    const daysLeft = Math.ceil(timeLeft / (24 * 60 * 60 * 1000));
+    showStatus(`Withdrawal is locked. Try again in ${daysLeft} day(s).`, true);
+    return;
+  }
+
+  try {
+    await fixedContract.methods.withdrawStake().send({ from: userAccount });
+    showStatus("Withdrawal successful.");
+    localStorage.removeItem(lockKey); // Clear lock after successful withdrawal
+    await updateStakedInfo();
+  } catch (err) {
+    console.error("Withdrawal failed:", err);
+    showStatus("Withdrawal failed. Check console for details.", true);
+  }
 }
 
 
-
-async function withdrawStake() {
+async function proceedWithWithdrawal() {
   try {
-    await fixedContract.methods.withdrawStake().send({ from: account });
+    await fixedContract.methods.withdrawStake().send({ from: userAccount });
     showStatus("Withdraw successful.");
+    withdrawalConfirmed = false;
+    await updateStakedInfo();
   } catch (error) {
-    console.error(error);
+    console.error("Withdrawal error:", error);
     showStatus("Withdraw failed.", true);
   }
 }
@@ -375,6 +431,7 @@ async function getStakedAmount() {
   try {
     const stakeInfo = await fixedContract.methods.stakes(account).call();
     const stakedAmount = web3.utils.fromWei(stakeInfo.amount, 'ether');
+  
     document.getElementById("stakedInfo").textContent = Staked: ${stakedAmount} BLG;
   } catch (err) {
     console.error("Error fetching staked amount:", err);
