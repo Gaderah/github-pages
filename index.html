@@ -238,8 +238,8 @@ async function buyBLG() {
   const amount = parseFloat(document.getElementById("buyAmount").value);
   if (isNaN(amount) || amount <= 0) return;
 
-  const pricePerBLG = 2 * 10**6;
-  const totalUSDT = BigInt(amount * 1e6);
+  const pricePerBLG = 2 * 10**6; // 2 USDT with 6 decimals
+  const totalUSDT = BigInt(Math.floor(amount * pricePerBLG)); // amount * 2 USDT (in micro-units)
   const totalWithFee = totalUSDT;
 
   try {
