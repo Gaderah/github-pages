@@ -188,10 +188,10 @@
         <h2 class="text-xl font-bold mb-2">Stake BLG</h2>
         <input type="number" id="stakeAmount" placeholder="Amount to Stake" class="w-full p-2 text-black rounded mb-2">
         <button onclick="stakeTokens()" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded w-full">Stake</button>
-<p id="stakedInfo" class="mt-2 text-sm text-green-400">Staked: --</p>
-<p id="stakeTimestampInfo" class="mt-1 text-sm text-blue-300">Stake Timestamp: --</p>
-<p id="withdrawCountdown" class="mt-1 text-sm text-yellow-300">Withdrawal available in: --</p>
-     </div>
+        <p id="stakedInfo" class="mt-2 text-sm text-green-400">Staked: --</p>
+        <p id="stakeTimestampInfo" class="mt-1 text-sm text-blue-300">Stake Timestamp: --</p>
+        <p id="withdrawCountdown" class="mt-1 text-sm text-yellow-300">Withdrawal available in: --</p>
+      </div>
     </div>
 
     <div class="mt-4">
@@ -211,51 +211,35 @@ const ownerAddress = "0x886B317b6AB2a5a6Df46C27f445DE858a22f678B";
 
 let fixedContract, blgToken, usdtToken;
 
-
 window.addEventListener('load', async () => {
-  if (window.ethereum && Array.isArray(window.ethereum.providers)) {
-    const metamaskProvider = window.ethereum.providers.find(p => p.isMetaMask);
-    if (metamaskProvider) {
-      window.ethereum = metamaskProvider;
-      web3 = new Web3(window.ethereum);
-    } else {
-      alert("MetaMask provider not found. Please install or enable MetaMask.");
-      return;
-    }
-  } else if (window.ethereum && window.ethereum.isMetaMask) {
+  if (window.ethereum) {
     web3 = new Web3(window.ethereum);
-  } else {
-    alert("No compatible wallet detected. Please install MetaMask.");
-    return;
-  }
 
-  const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-  if (accounts.length > 0) {
-    account = accounts[0];
-    document.getElementById("walletAddress").textContent = `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
+    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+    if (accounts.length > 0) {
+      userAccount = accounts[0];
+      document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+      await initContracts();
+    }
+  } else {
+    alert("MetaMask not detected. Please install MetaMask.");
   }
 });
 
-function initContracts() {
-  fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
-  blgToken = new web3.eth.Contract(APPROVE_ABI, BLG_TOKEN_ADDRESS);
-  usdtToken = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
-}
-
 async function connectWallet() {
-  if (typeof window.ethereum === "undefined") {
+  if (!window.ethereum) {
     showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
     return;
   }
 
   try {
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
     if (!accounts || !accounts.length) {
       showStatus("No account found or connection rejected.", true);
       return;
     }
-    account = accounts[0];
-    document.getElementById("walletAddress").textContent = `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
+    userAccount = accounts[0];
+    document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
     showStatus("Wallet connected.");
     initContracts();
   } catch (err) {
@@ -264,15 +248,27 @@ async function connectWallet() {
   }
 }
 
+function initContracts() {
+  fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
+  blgToken = new web3.eth.Contract(APPROVE_ABI, BLG_TOKEN_ADDRESS);
+  usdtToken = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
+}
+
+function showStatus(message, isError = false) {
+  const statusEl = document.getElementById("status");
+  statusEl.textContent = message;
+  statusEl.className = `mt-4 text-sm ${isError ? "text-red-400" : "text-green-400"}`;
+}
+
+// You can place buyBLG(), stakeTokens(), checkWithdrawalStatus() functions below this point
 
 const FIXED_CONTRACT_ABI = [
   { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "buyBLG", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
   { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "stake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
   { "inputs": [], "name": "withdrawStake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-{ "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "staked", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
-{ "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getStakeTimestamp", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }
+  { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "staked", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
+  { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "getStakeTimestamp", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" }
 ];
-
 
 const APPROVE_ABI = [
   {
@@ -288,30 +284,6 @@ const APPROVE_ABI = [
   }
 ];
 
-async function connectWallet() {
-  if (typeof window.ethereum === "undefined") {
-    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
-    return;
-  }
-
-  try {
-    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-    userAccount = accounts[0];
-    console.log("Connected wallet:", userAccount);
-    if (!accounts || !accounts.length) {
-      showStatus("No account found or connection rejected.", true);
-      return;
-    }
-    document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
-    showStatus("Wallet connected.");
-    initContracts();
-    await updateStakedInfo();
-    await fetchStakeTimestamp();
-  } catch (err) {
-    console.error("Wallet connection error:", err);
-    showStatus(`Wallet connection failed: ${err.message}`, true);
-  }
-}
 
 async function buyBLG() {
   const amount = parseFloat(document.getElementById("buyAmount").value);
@@ -371,7 +343,6 @@ window.addEventListener('load', async () => {
         await updateStakedInfo();
         await fetchStakeTimestamp();
       }
-    });
   } else {
     showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
   }
@@ -532,6 +503,7 @@ showStatus("Withdrawal transaction sent.");
     showStatus("Withdrawal failed: " + err.message, true);
   }
 }
+
 </script>
 </body>
 </html>
