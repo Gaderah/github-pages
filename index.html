@@ -210,6 +210,29 @@ const ownerAddress = "0x886B317b6AB2a5a6Df46C27f445DE858a22f678B";
 
 let fixedContract, blgToken, usdtToken;
 
+window.addEventListener('load', async () => {
+  if (window.ethereum && Array.isArray(window.ethereum.providers)) {
+    const metamaskProvider = window.ethereum.providers.find(p => p.isMetaMask);
+    if (metamaskProvider) {
+      window.ethereum = metamaskProvider;
+      web3 = new Web3(window.ethereum);
+    } else {
+      alert("MetaMask provider not found. Please install or enable MetaMask.");
+      return;
+    }
+  } else if (window.ethereum && window.ethereum.isMetaMask) {
+    web3 = new Web3(window.ethereum);
+  } else {
+    alert("No compatible wallet detected. Please install MetaMask.");
+    return;
+  }
+
+  const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+  if (accounts.length > 0) {
+    account = accounts[0];
+    document.getElementById("walletAddress").textContent = `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
+  }
+});
 
 const FIXED_CONTRACT_ABI = [
   { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "buyBLG", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
