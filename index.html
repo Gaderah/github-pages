@@ -173,7 +173,7 @@
 
     <div class="mb-4">
       <button onclick="connectWallet()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Connect Wallet</button>
-      <span id="walletAddress" class="ml-4"></span>
+      <span id="walletAddress" class="ml-4 text-gray-700"></span>
     </div>
 
     <div class="grid md:grid-cols-2 gap-4">
@@ -233,6 +233,31 @@ const APPROVE_ABI = [
     "type": "function"
   }
 ];
+
+async function connectWallet() {
+  if (typeof window.ethereum === "undefined") {
+    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
+    return;
+  }
+
+  try {
+    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+    userAccount = accounts[0];
+    console.log("Connected wallet:", userAccount);
+    if (!accounts || !accounts.length) {
+      showStatus("No account found or connection rejected.", true);
+      return;
+    }
+    document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+    showStatus("Wallet connected.");
+    initContracts();
+    await updateStakedInfo();
+    await fetchStakeTimestamp();
+  } catch (err) {
+    console.error("Wallet connection error:", err);
+    showStatus(`Wallet connection failed: ${err.message}`, true);
+  }
+}
 
 async function buyBLG() {
   const amount = parseFloat(document.getElementById("buyAmount").value);
@@ -303,31 +328,6 @@ function initContracts() {
   fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
   blgToken = new web3.eth.Contract(APPROVE_ABI, BLG_TOKEN_ADDRESS);
   usdtToken = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
-}
-
-async function connectWallet() {
-  if (typeof window.ethereum === "undefined") {
-    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
-    return;
-  }
-
-  try {
-    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-    userAccount = accounts[0];
-    console.log("Connected wallet:", userAccount);
-    if (!accounts || !accounts.length) {
-      showStatus("No account found or connection rejected.", true);
-      return;
-    }
-    document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
-    showStatus("Wallet connected.");
-    initContracts();
-    await updateStakedInfo();
-    await fetchStakeTimestamp();
-  } catch (err) {
-    console.error("Wallet connection error:", err);
-    showStatus(`Wallet connection failed: ${err.message}`, true);
-  }
 }
 
 
