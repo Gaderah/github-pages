@@ -332,7 +332,6 @@ window.addEventListener('load', async () => {
   }
 });
 
-
 async function updateStakedInfo() {
   if (!window.ethereum || !window.web3 || !userAccount) return;
   try {
@@ -351,23 +350,33 @@ async function fetchStakeTimestamp() {
   try {
     const timestamp = await fixedContract.methods.getStakeTimestamp(userAccount).call();
     if (timestamp && timestamp > 0) {
-      const countdownText = remaining > 0
-      const date = new Date(timestamp * 1000);
-      const formatted = date.toLocaleString();
-      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${formatted}`;
-      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date(timestamp * 1000).toLocaleString()}`;
+      const stakeDate = new Date(timestamp * 1000);
+      const now = Date.now();
+      const withdrawInterval = 9 * 24 * 60 * 60 * 1000; // 9 days in milliseconds
+      const timeRemaining = timestamp * 1000 + withdrawInterval - now;
 
-      ? `Withdrawal available in: ${daysLeft} day(s)`
-      : "Withdrawal available now!";
+      let countdownText;
+      if (timeRemaining > 0) {
+        const daysLeft = Math.ceil(timeRemaining / (24 * 60 * 60 * 1000));
+        countdownText = `Withdrawal available in: ${daysLeft} day(s)`;
+      } else {
+        countdownText = "Withdrawal available now!";
+      }
+
+      document.getElementById("stakeTimestampInfo").textContent =
+        `Stake Timestamp: ${stakeDate.toLocaleString()}`;
       document.getElementById("withdrawCountdown").textContent = countdownText;
     } else {
       document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
+      document.getElementById("withdrawCountdown").textContent = "";
     }
   } catch (error) {
     console.error("Error fetching stake timestamp:", error);
     document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
+    document.getElementById("withdrawCountdown").textContent = "";
   }
 }
+
 
 function showStatus(message, isError = false) {
   const statusDiv = document.getElementById("status");
