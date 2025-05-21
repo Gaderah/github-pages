@@ -325,11 +325,12 @@ window.addEventListener('load', async () => {
         await updateStakedInfo();
         await fetchStakeTimestamp();
       }
+    });
+
   } else {
     showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
   }
 });
-
 
 
 async function updateStakedInfo() {
