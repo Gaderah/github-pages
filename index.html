@@ -332,6 +332,8 @@ window.addEventListener('load', async () => {
   }
 });
 
+
+
 async function updateStakedInfo() {
   if (!window.ethereum || !window.web3 || !userAccount) return;
   try {
@@ -447,7 +449,7 @@ async function getStakedAmount() {
     const stakeInfo = await fixedContract.methods.stakes(account).call();
     const stakedAmount = web3.utils.fromWei(stakeInfo.amount, 'ether');
   
-    document.getElementById("stakedInfo").textContent = Staked: ${stakedAmount} BLG;
+    document.getElementById("stakedInfo").textContent = `Staked: ${stakedAmount} BLG`;
   } catch (err) {
     console.error("Error fetching staked amount:", err);
     document.getElementById("stakedInfo").textContent = "Staked: Error";
