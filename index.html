@@ -479,11 +479,11 @@ try {
       return;
     }
 
+  try {
     // Allow withdrawal
     await fixedContract.methods.withdrawStake().send({ from: userAddress });
-  }
 
-showStatus("Withdrawal transaction sent.");
+    showStatus("Withdrawal transaction sent.");
     await updateStakedInfo();
     hasAcknowledgedPenalty = false; // Reset in case new stake is placed
   } catch (err) {
