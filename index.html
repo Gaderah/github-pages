@@ -155,7 +155,6 @@
     <!-- end wallet -->
     <!-- about -->
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -190,6 +189,7 @@
         <button onclick="stakeTokens()" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded w-full">Stake</button>
 <p id="stakedInfo" class="mt-2 text-sm text-green-400">Staked: --</p>
 <p id="stakeTimestampInfo" class="mt-1 text-sm text-blue-300">Stake Timestamp: --</p>
+<p id="withdrawCountdown" class="mt-1 text-sm text-yellow-300">Withdrawal available in: --</p>
      </div>
     </div>
 
@@ -277,7 +277,7 @@ window.addEventListener('load', async () => {
       const accounts = await window.ethereum.request({ method: 'eth_accounts' });
       if (accounts.length > 0) {
         userAccount = accounts[0];
-        document.getElementById("walletAddress").textContent = Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)};
+        document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
         await initContracts();
       }
     } catch (err) {
@@ -287,14 +287,14 @@ window.addEventListener('load', async () => {
     window.ethereum.on('accountsChanged', async (accounts) => {
       if (accounts.length > 0) {
         userAccount = accounts[0];
-        document.getElementById("walletAddress").textContent = Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)};
+        document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
         showStatus("Wallet changed.");
         await updateStakedInfo();
         await fetchStakeTimestamp();
       }
     });
   } else {
-    showStatus(MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>., true);
+    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
   }
 });
 
@@ -307,7 +307,7 @@ function initContracts() {
 
 async function connectWallet() {
   if (typeof window.ethereum === "undefined") {
-    showStatus(MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>., true);
+    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
     return;
   }
 
@@ -319,21 +319,20 @@ async function connectWallet() {
       showStatus("No account found or connection rejected.", true);
       return;
     }
-    document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)};`
+    document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
     showStatus("Wallet connected.");
     initContracts();
     await updateStakedInfo();
     await fetchStakeTimestamp();
   } catch (err) {
     console.error("Wallet connection error:", err);
-    showStatus("Wallet connection failed: " + err.message, true);
+    showStatus(`Wallet connection failed: ${err.message}`, true);
   }
 }
 
 
 async function updateStakedInfo() {
   if (!window.ethereum || !window.web3 || !userAccount) return;
-
   try {
     const stakedAmount = await fixedContract.methods.staked(userAccount).call();
     const decimals = 18; // adjust if your token uses a different decimal
@@ -347,13 +346,18 @@ async function updateStakedInfo() {
 
 async function fetchStakeTimestamp() {
   if (!fixedContract || !userAccount) return;
-
   try {
     const timestamp = await fixedContract.methods.getStakeTimestamp(userAccount).call();
     if (timestamp && timestamp > 0) {
+      const countdownText = remaining > 0
       const date = new Date(timestamp * 1000);
       const formatted = date.toLocaleString();
       document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${formatted}`;
+      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date(timestamp * 1000).toLocaleString()}`;
+
+      ? `Withdrawal available in: ${daysLeft} day(s)`
+      : "Withdrawal available now!";
+      document.getElementById("withdrawCountdown").textContent = countdownText;
     } else {
       document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
     }
@@ -375,38 +379,38 @@ let earlyWithdrawLocked = {}; // simple in-memory lock tracking
 
 
 async function checkWithdrawalStatus() {
-  if (!fixedContract || !userAccount) return;
-
-  const lockKey = `earlyLock_${userAccount}`;
-  const stakeTimestamp = parseInt(localStorage.getItem(lockKey), 10);
-  const now = Date.now();
-  const stakingDuration = 18 * 24 * 60 * 60 * 1000; // 18 days in ms
-
-  if (!stakeTimestamp || isNaN(stakeTimestamp)) {
-    showStatus("No stake lock timestamp found. Cannot verify withdrawal eligibility.", true);
-    return;
-  }
-
-  const unlockTime = stakeTimestamp + stakingDuration;
-
-  if (now < unlockTime) {
-    const timeLeft = unlockTime - now;
-    const daysLeft = Math.ceil(timeLeft / (24 * 60 * 60 * 1000));
-    showStatus(`Withdrawal is locked. Try again in ${daysLeft} day(s).`, true);
+  if (!userAccount || !fixedContract) {
+    showStatus("Wallet not connected or contract not initialized.", true);
     return;
   }
 
   try {
-    await fixedContract.methods.withdrawStake().send({ from: userAccount });
-    showStatus("Withdrawal successful.");
-    localStorage.removeItem(lockKey); // Clear lock after successful withdrawal
+    const stakeTimestamp = await fixedContract.methods.getStakeTimestamp(userAccount).call();
+    const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+    const timeSinceStake = currentTime - stakeTimestamp;
+
+    // Example withdrawal rules (adjust to match your contract logic):
+    const firstWithdrawTime = 9 * 24 * 60 * 60; // 9 days in seconds
+    const secondWithdrawTime = 18 * 24 * 60 * 60; // 18 days in seconds
+
+    if (timeSinceStake >= secondWithdrawTime) {
+      await fixedContract.methods.withdrawStake().send({ from: userAccount });
+      showStatus("Second withdrawal successful.");
+    } else if (timeSinceStake >= firstWithdrawTime) {
+      await fixedContract.methods.withdrawStake().send({ from: userAccount });
+      showStatus("First withdrawal successful.");
+    } else {
+      const remainingTime = firstWithdrawTime - timeSinceStake;
+      showStatus(`You can withdraw in ${Math.ceil(remainingTime / 3600)} hours.`);
+    }
+
     await updateStakedInfo();
-  } catch (err) {
-    console.error("Withdrawal failed:", err);
-    showStatus("Withdrawal failed. Check console for details.", true);
+    await fetchStakeTimestamp();
+  } catch (error) {
+    console.error("Withdrawal error:", error);
+    showStatus("Withdrawal failed or not yet allowed.", true);
   }
 }
-
 
 async function proceedWithWithdrawal() {
   try {
@@ -477,9 +481,7 @@ showStatus("Withdrawal transaction sent.");
 </script>
 </body>
 </html>
-    
-
-        
+           
     <!-- end about -->
     <!-- works -->
     <div class="works">
