@@ -235,6 +235,12 @@ const APPROVE_ABI = [
   }
 ];
 
+function initContracts() {
+  fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
+  blgToken = new web3.eth.Contract(APPROVE_ABI, BLG_TOKEN_ADDRESS);
+  usdtToken = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
+}
+
 async function connectWallet() {
   if (typeof window.ethereum === "undefined") {
     showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
@@ -324,12 +330,6 @@ window.addEventListener('load', async () => {
   }
 });
 
-
-function initContracts() {
-  fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
-  blgToken = new web3.eth.Contract(APPROVE_ABI, BLG_TOKEN_ADDRESS);
-  usdtToken = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
-}
 
 
 async function updateStakedInfo() {
