@@ -227,16 +227,7 @@ window.addEventListener('load', async () => {
     account = accounts[0];
     document.getElementById("walletAddress").textContent = `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
   }
-
 });
-
-
-async function init() {
-  // your existing load logic
-  ...
-  await initContracts(); // now safe
-}
-
 
 function initContracts() {
   fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
@@ -965,6 +956,7 @@ function showStatus(message, isError = false) {
 </script>
 </body>
 </html>
+
 
 
       
