@@ -461,7 +461,7 @@ async function checkWithdrawalStatus() {
 try {
     const stakingInfo = await fixedContract.methods.stakes(userAddress).call();
     const stakedAmount = web3.utils.toBN(stakingInfo);
-    if (stake.amount == 0) {
+    if (stakingInfo.amount == 0) {
       alert("You have no active stake.");
       return;
     }
@@ -488,6 +488,10 @@ try {
   } catch (err) {
     console.error("Withdraw error:", err);
     showStatus("Withdrawal failed: " + err.message, true);
+  }
+} catch (outerErr) {
+   console.error("Error checking stake status:", outerErr);
+    showStatus("Error checking stake info: " + outerErr.message, true);
   }
 }
 </script>
