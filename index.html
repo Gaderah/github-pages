@@ -276,7 +276,7 @@ async function buyBLG() {
 
   try {
     await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, totalWithFee.toString()).send({ from: userAccount });
-    await fixedContract.methods.buyBLG(amount).send({ from: userAccount });
+    await fixedContract.methods.buy(blgAmount).send({ from: userAccount });
     showStatus("BLG purchase successful.");
   } catch (error) {
     console.error(error);
@@ -497,7 +497,6 @@ try {
 </script>
 </body>
 </html>
-
 	      
     <!-- end about -->
     <!-- works -->
