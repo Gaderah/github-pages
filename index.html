@@ -272,11 +272,14 @@ async function buyBLG() {
 
   const pricePerBLG = 2 * 10**6; // 2 USDT with 6 decimals
   const totalUSDT = BigInt(Math.floor(amount * pricePerBLG)); // amount * 2 USDT (in micro-units)
-  const totalWithFee = totalUSDT;
+  const feeMultiplier = 1.02; // 2% extra
+  const totalWithFee = BigInt(Math.floor(amount * pricePerBLG * feeMultiplier));
 
   try {
+    const feeMultiplier = 1.02; // 2% extra
+    const totalWithFee = BigInt(Math.floor(amount * pricePerBLG * feeMultiplier));
     await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, totalWithFee.toString()).send({ from: userAccount });
-    await fixedContract.methods.buy(blgAmount).send({ from: userAccount });
+    await fixedContract.methods.buyBLG(amount.toString()).send({ from: userAccount });
     showStatus("BLG purchase successful.");
   } catch (error) {
     console.error(error);
