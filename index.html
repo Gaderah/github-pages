@@ -155,6 +155,7 @@
     <!-- end wallet -->
     <!-- about -->
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -205,21 +206,42 @@ let web3;
 let userAccount;
 let fixedContract, blgToken, usdtToken;
 
-const FIXED_CONTRACT_ADDRESS = "0xB7c9b8a715b5feD7195A00deE19088208aEc7229";
+const FIXED_CONTRACT_ADDRESS = "0x1A79B993440687B64bCc74Bd3f2e079651B68Cd4";
 const BLG_TOKEN_ADDRESS = "0xd498b276EE8Fb629e1B4103491585AD8f1a4bD53";
 const USDT_TOKEN_ADDRESS = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
 const ownerAddress = "0x886B317b6AB2a5a6Df46C27f445DE858a22f678B";
 
 const FIXED_CONTRACT_ABI = [
-  { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "buyBLG", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-  { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "stake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-  { "inputs": [], "name": "withdrawStake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-  { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "stakes", "outputs": [
-      { "internalType": "uint256", "name": "amount", "type": "uint256" },
-      { "internalType": "uint256", "name": "startTime", "type": "uint256" },
-      { "internalType": "bool", "name": "claimed", "type": "bool" }
-    ], "stateMutability": "view", "type": "function" }
-];
+    { "inputs": [ { "internalType": "address", "name": "_usdt", "type": "address" }, { "internalType": "address", "name": "_blg", "type": "address" } ], "stateMutability": "nonpayable", "type": "constructor" },
+    { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "Staked", "type": "event" },
+    { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "uint256", "name": "newDuration", "type": "uint256" } ], "name": "StakingDurationChanged", "type": "event" },
+    { "anonymous": false, "inputs": [ { "indexed": false, "internalType": "uint256", "name": "newRewardPercent", "type": "uint256" } ], "name": "StakingRewardChanged", "type": "event" },
+    { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "buyer", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "blgAmount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "usdtAmount", "type": "uint256" } ], "name": "TokensPurchased", "type": "event" },
+    { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "user", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "reward", "type": "uint256" } ], "name": "Withdrawn", "type": "event" },
+    { "inputs": [], "name": "BLG_PRICE", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
+    { "inputs": [], "name": "blg", "outputs": [ { "internalType": "contract IERC20", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" },
+    { "inputs": [ { "internalType": "uint256", "name": "blgAmount", "type": "uint256" } ], "name": "buyBLG", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [ { "internalType": "address", "name": "user", "type": "address" } ], "name": "canWithdraw", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" },
+    { "inputs": [], "name": "clearExpiredLock", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "earlyWithdrawLock", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" },
+    { "inputs": [ { "internalType": "address", "name": "user", "type": "address" } ], "name": "getStakeInfo", "outputs": [ { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "uint256", "name": "startTime", "type": "uint256" }, { "internalType": "bool", "name": "claimed", "type": "bool" } ], "stateMutability": "view", "type": "function" },
+    { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "lockEnd", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
+    { "inputs": [ { "internalType": "address", "name": "user", "type": "address" } ], "name": "lockUser ForEarlyWithdraw", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [], "name": "owner", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" },
+    { "inputs": [ { "internalType": "uint256", "name": "duration", "type": "uint256" } ], "name": "setStakingDuration", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [ { "internalType": "uint256", "name": "rewardPercent", "type": "uint256" } ], "name": "setStakingReward", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [ { "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "stake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "stakeTimestamp", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
+    { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "stakes", "outputs": [ { "internalType": "uint256", "name": "amount", "type": "uint256" }, { "internalType": "uint256", "name": "startTime", "type": "uint256" }, { "internalType": "bool", "name": "claimed", "type": "bool" } ], "stateMutability": "view", "type": "function" },
+    { "inputs": [], "name": "stakingDuration", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
+    { "inputs": [], "name": "stakingRewardPercent", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" },
+    { "inputs": [], "name": "usdt", "outputs": [ { "internalType": "contract IERC20", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" },
+    { "inputs": [ { "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "withdrawBLG", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [], "name": "withdrawStake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "inputs": [ { "internalType": "uint256", "name": "amount", "type": "uint256" } ], "name": "withdrawUSDT", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+    { "stateMutability": "payable", "type": "receive" }
+]
+
 
 const APPROVE_ABI = [
   {
@@ -428,6 +450,7 @@ window.addEventListener('load', async () => {
 </script>
 </body>
 </html>
+
 	      
     <!-- end about -->
     <!-- works -->
