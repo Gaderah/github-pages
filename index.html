@@ -155,28 +155,328 @@
     <!-- end wallet -->
     <!-- about -->
 
-async function approveBLG(amount) {
-    const blgAmount = web3.utils.toWei(amount.toString(), 'ether'); // Convert amount to Wei
-    try {
-        // Debugging: Check if blgToken is initialized correctly
-        console.log("BLG Token Contract:", blgToken);
-        
-        // Check if blgToken has the methods we expect
-        if (typeof blgToken.methods.balanceOf !== 'function') {
-            throw new Error("blgToken is not initialized correctly.");
-        }
-        const balance = await blgToken.methods.balanceOf(userAccount).call();
-        if (BigInt(blgAmount) > BigInt(balance)) {
-            showStatus("Insufficient BLG balance for approval.", true);
-            return;
-        }
-        await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, blgAmount).send({ from: userAccount, gas: 200000 });
-        showStatus("Approval successful.");
-    } catch (error) {
-        console.error("Approval failed:", error);
-        showStatus("Approval failed.", true);
-    }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>BluGo Token Sale & Staking</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white font-sans">
+  <div class="container mx-auto p-4">
+    <h1 class="text-3xl font-bold mb-6">BluGo Token Sale & Staking</h1>
+
+    <div class="mb-4">
+      <button onclick="connectWallet()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Connect Wallet</button>
+      <span id="walletAddress" class="ml-4 text-gray-200"></span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="bg-gray-800 p-4 rounded">
+        <h2 class="text-xl font-bold mb-2">Buy BLG</h2>
+        <input type="number" id="buyAmount" placeholder="Amount of BLG" class="w-full p-2 text-black rounded mb-2" min="0" step="any">
+        <button onclick="buyBLG()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full">Buy</button>
+      </div>
+
+      <div class="bg-gray-800 p-4 rounded">
+        <h2 class="text-xl font-bold mb-2">Stake BLG</h2>
+        <input type="number" id="stakeAmount" placeholder="Amount to Stake" class="w-full p-2 text-black rounded mb-2" min="0" step="any">
+        <button onclick="stakeTokens()" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded w-full">Stake</button>
+        <p id="stakedInfo" class="mt-2 text-sm text-green-400">Staked: --</p>
+        <p id="stakeTimestampInfo" class="mt-1 text-sm text-blue-300">Stake Timestamp: --</p>
+        <p id="withdrawCountdown" class="mt-1 text-sm text-yellow-300">Withdrawal available in: --</p>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <button onclick="checkWithdrawalStatus()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Withdraw Stake</button>
+    </div>
+
+    <div id="status" class="mt-4 text-sm text-gray-300"></div>
+  </div>
+
+  <script>
+    let web3;
+    let userAccount;
+    const FIXED_CONTRACT_ADDRESS = "0x1A79B993440687B64bCc74Bd3f2e079651B68Cd4";
+    const BLG_TOKEN_ADDRESS = "0xd498b276EE8Fb629e1B4103491585AD8f1a4bD53";
+    const USDT_TOKEN_ADDRESS = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
+    const ownerAddress = "0x886B317b6AB2a5a6Df46C27f445DE858a22f678B";
+
+    let fixedContract, blgToken, usdtToken;
+
+    const FIXED_CONTRACT_ABI = [
+      {
+        "inputs": [
+          { "internalType": "address", "name": "_usdt", "type": "address" },
+          { "internalType": "address", "name": "_blg", "type": "address" }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+      },
+      {
+        "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }],
+        "name": "buyBLG",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }],
+        "name": "stake",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "withdrawStake",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
+        "name": "staked",
+        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
+        "name": "getStakeTimestamp",
+        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ];
+
+    const APPROVE_ABI = [
+      {
+        "constant": false,
+        "inputs": [
+          { "name": "spender", "type": "address" },
+          { "name": "amount", "type": "uint256" }
+        ],
+        "name": "approve",
+        "outputs": [{ "name": "", "type": "bool" }],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      }
+    ];
+
+    async function initContracts() {
+  fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
+  blgToken = new web3.eth.Contract(APPROVE_ABI, BLG_TOKEN_ADDRESS);
+  usdtToken = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
+
+  // Add event listeners
+  fixedContract.events.TokensPurchased({ filter: { buyer: userAccount } })
+    .on('data', event => {
+      showStatus(`You purchased ${event.returnValues.blgAmount} BLG for ${event.returnValues.usdtAmount} USDT.`);
+    })
+    .on('error', console.error);
+
+  fixedContract.events.Staked({ filter: { user: userAccount } })
+    .on('data', event => {
+      showStatus(`You staked ${event.returnValues.amount} BLG.`);
+      updateStakedInfo();
+    })
+    .on('error', console.error);
+
+  fixedContract.events.Withdrawn({ filter: { user: userAccount } })
+    .on('data', event => {
+      showStatus(`You withdrew ${event.returnValues.amount} BLG and earned ${event.returnValues.reward} as a reward.`);
+      updateStakedInfo();
+    })
+    .on('error', console.error);
 }
+
+
+    async function connectWallet() {
+      if (typeof window.ethereum === "undefined") {
+        showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
+        return;
+      }
+
+      try {
+        web3 = new Web3(window.ethereum);
+        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+        userAccount = accounts[0];
+        if (!accounts || !accounts.length) {
+          showStatus("No account found or connection rejected.", true);
+          return;
+        }
+        document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+        showStatus("Wallet connected.");
+        initContracts();
+        await updateStakedInfo();
+        await fetchStakeTimestamp();
+      } catch (err) {
+        console.error("Wallet connection error:", err);
+        showStatus(`Wallet connection failed: ${err.message}`, true);
+      }
+    }
+
+    async function buyBLG() {
+      const amount = parseFloat(document.getElementById("buyAmount").value);
+      if (isNaN(amount) || amount <= 0) return;
+
+      const pricePerBLG = 2 * 10**6; // 2 USDT with 6 decimals
+      const totalUSDT = BigInt(amount * pricePerBLG);
+      const totalWithFee = totalUSDT;
+
+      // Approve USDT for the purchase
+      const approved = await approveToken(usdtToken, totalUSDT);
+      if (!approved) return; // Exit if approval failed
+
+      try {
+        const usdtBalance = await usdtToken.methods.balanceOf(userAccount).call();
+        if (usdtBalance < totalWithFee) {
+          showStatus("Insufficient USDT balance.", true);
+          return;
+        }
+
+        await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, totalWithFee.toString()).send({ from: userAccount });
+        await fixedContract.methods.buyBLG(amount).send({ from: userAccount });
+        showStatus("BLG purchase successful.");
+      } catch (error) {
+        console.error(error);
+        showStatus("Purchase failed.", true);
+      }
+    }
+
+    async function stakeTokens() {
+      const amount = parseFloat(document.getElementById("stakeAmount").value);
+      if (isNaN(amount) || amount <= 0) return;
+      const stakeAmount = web3.utils.toWei(amount.toString(), 'ether');
+
+      try {
+        const blgBalance = await blgToken.methods.balanceOf(userAccount).call();
+        if (blgBalance < stakeAmount) {
+          showStatus("Insufficient BLG balance.", true);
+          return;
+        }
+
+        await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmount.toString()).send({ from: userAccount });
+        await fixedContract.methods.stake(stakeAmount.toString()).send({ from: userAccount });
+        showStatus("Staking successful.");
+        await updateStakedInfo();
+        await fetchStakeTimestamp();
+      } catch (error) {
+        console.error(error);
+        showStatus("Staking failed.", true);
+      }
+    }
+
+    async function checkWithdrawalStatus() {
+      if (!userAccount || !fixedContract) {
+        showStatus("Wallet not connected or contract not initialized.", true);
+        return;
+      }
+
+      try {
+        const stakeInfo = await fixedContract.methods.staked(userAccount).call();
+        if (!stakeInfo || stakeInfo.amount == 0) {
+          showStatus("You have no active stake.", true);
+          return;
+        }
+
+        const stakeStart = Number(stakeInfo.startTime);
+        const now = Math.floor(Date.now() / 1000);
+        const stakingDuration = 18 * 24 * 60 * 60; // seconds
+
+        if (now < stakeStart + stakingDuration) {
+          const remaining = (stakeStart + stakingDuration) - now;
+          const hoursLeft = Math.floor(remaining / 3600);
+          const minsLeft = Math.floor((remaining % 3600) / 60);
+          showStatus(`⚠️ Withdrawal not allowed yet. You must wait ${hoursLeft}h ${minsLeft}m to avoid penalties or failed transactions.`, true);
+          return;
+        }
+
+        // Allowed to withdraw
+        await fixedContract.methods.withdrawStake().send({ from: userAccount });
+        showStatus("Withdrawal transaction sent.");
+        await updateStakedInfo();
+        await fetchStakeTimestamp();
+      } catch (error) {
+        console.error("Withdrawal error:", error);
+        showStatus("Withdrawal failed or not yet allowed.", true);
+      }
+    }
+
+    function showStatus(message, isError = false) {
+      const statusDiv = document.getElementById("status");
+      statusDiv.innerHTML = message;
+      statusDiv.className = isError ? 'text-red-400' : 'text-green-400';
+    }
+
+    async function updateStakedInfo() {
+      if (!window.ethereum || !web3 || !userAccount) return;
+      try {
+        const stakedAmount = await fixedContract.methods.staked(userAccount).call();
+        const formatted = web3.utils.fromWei(stakedAmount.toString(), 'ether');
+        document.getElementById("stakedInfo").textContent = `Staked: ${formatted} BLG`;
+      } catch (error) {
+        console.error("Error fetching staked amount:", error);
+        document.getElementById("stakedInfo").textContent = "Staked: --";
+      }
+    }
+
+    async function fetchStakeTimestamp() {
+      if (!fixedContract || !userAccount) return;
+
+      try {
+        const timestamp = await fixedContract.methods.getStakeTimestamp(userAccount).call();
+        if (timestamp && timestamp > 0) {
+          const date = new Date(timestamp * 1000);
+          const formatted = date.toLocaleString();
+          document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${formatted}`;
+        } else {
+          document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
+        }
+      } catch (error) {
+        console.error("Error fetching stake timestamp:", error);
+        document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
+      }
+    }
+
+    window.addEventListener('load', async () => {
+      if (window.ethereum) {
+        web3 = new Web3(window.ethereum);
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0) {
+            userAccount = accounts[0];
+            document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+            await initContracts();
+          }
+        } catch (err) {
+          console.error("Error getting accounts:", err);
+        }
+
+        window.ethereum.on('accountsChanged', async (accounts) => {
+          if (accounts.length > 0) {
+            userAccount = accounts[0];
+            document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+            showStatus("Wallet changed.");
+            await updateStakedInfo();
+            await fetchStakeTimestamp();
+          }
+        });
+      } else {
+        showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
+      }
+    });
+  </script>
+</body>
+</html>
+
 	      
     <!-- end about -->
     <!-- works -->
