@@ -157,6 +157,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -309,6 +310,17 @@ async function buyBLG() {
   }
 }
 
+async function approveBLG(amount) {
+    const blgAmount = web3.utils.toWei(amount.toString(), 'ether'); // Convert amount to Wei
+    try {
+        await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, blgAmount).send({ from: userAccount });
+        showStatus("Approval successful.");
+    } catch (error) {
+        console.error("Approval failed:", error);
+        showStatus("Approval failed.", true);
+    }
+}
+
 async function stakeTokens() {
   const amount = parseFloat(document.getElementById("stakeAmount").value);
   if (isNaN(amount) || amount <= 0) return;
@@ -451,6 +463,7 @@ window.addEventListener('load', async () => {
 </script>
 </body>
 </html>
+
 
 	      
     <!-- end about -->
