@@ -733,34 +733,39 @@
     }
 
     async function buyBLG() {
-      const amount = parseFloat(document.getElementById("buyAmount").value);
-      if (isNaN(amount) || amount <= 0) return;
+  const amount = parseFloat(document.getElementById("buyAmount").value);
+  if (isNaN(amount) || amount <= 0) return;
 
-      const pricePerBLG = 2 * 10**6; // 2 USDT with 6 decimals
-      const totalUSDT = BigInt(amount * pricePerBLG);
-      const totalWithFee = totalUSDT;
+  const pricePerBLG = 2 * 10**6; // 2 USDT with 6 decimals
+  const totalUSDT = BigInt(amount * pricePerBLG);
+  const totalWithFee = totalUSDT;
 
+  // Approve USDT for the purchase
+  const approved = await approveToken(usdtToken, totalUSDT);
+  if (!approved) return;
 
-        const usdtBalance = await usdtToken.methods.balanceOf(userAccount).call();
-        if (usdtBalance < totalWithFee) {
-          showStatus("Insufficient USDT balance.", true);
-          return;
-        }
-
-      try {
-      const approved = await approveToken(usdtToken, totalUSDT);
-      if (!approved) return; // Exit if approval failed
-
-  
-        await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, totalWithFee.toString()).send({ from: userAccount });
-        await fixedContract.methods.buyBLG(amount).send({ from: userAccount });
-        showStatus("BLG purchase successful.");
-      } catch (error) {
-        console.error(error);
-        showStatus("Purchase failed.", true);
-      }
+  try {
+    const usdtBalance = await usdtToken.methods.balanceOf(userAccount).call();
+    if (usdtBalance < totalWithFee) {
+      showStatus("Insufficient USDT balance.", true);
+      return;
     }
 
+    await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, totalWithFee.toString()).send({ from: userAccount });
+
+    const blgAmount = web3.utils.toWei(amount.toString(), 'ether'); // 🔥 FIXED HERE
+    await fixedContract.methods.buyBLG(blgAmount).send({ from: userAccount }); // 🔥 USE THIS
+
+    showStatus("BLG purchase successful.");
+  } catch (error) {
+    console.error("Buy failed:", error);
+    if (error?.data?.message) {
+      showStatus("Purchase failed: " + error.data.message, true);
+    } else {
+      showStatus("Purchase failed: " + error.message, true);
+    }
+  }
+}
 
     async function stakeTokens() {
       const amount = parseFloat(document.getElementById("stakeAmount").value);
