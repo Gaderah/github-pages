@@ -210,7 +210,49 @@
     let fixedContract, blgToken, usdtToken;
 
     const FIXED_CONTRACT_ABI = [
-      // Add your contract ABI here
+      {
+        "inputs": [
+          { "internalType": "address", "name": "_usdt", "type": "address" },
+          { "internalType": "address", "name": "_blg", "type": "address" }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+      },
+      {
+        "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }],
+        "name": "buyBLG",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }],
+        "name": "stake",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "withdrawStake",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
+        "name": "staked",
+        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
+        "name": "getStakeTimestamp",
+        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "stateMutability": "view",
+        "type": "function"
+      }
     ];
 
     const APPROVE_ABI = [
@@ -312,7 +354,7 @@
     async function stakeTokens() {
       const amount = parseFloat(document.getElementById("stakeAmount").value);
       if (isNaN(amount) || amount <= 0) return;
-      const stakeAmount = web3.utils.toBN(web3.utils.toWei(amount.toString(), 'ether')); // Convert to wei
+      const stakeAmount = web3.utils.toWei(amount.toString(), 'ether'); // Convert to wei
 
       try {
         const blgBalance = await blgToken.methods.balanceOf(userAccount).call();
@@ -339,7 +381,7 @@
       }
 
       try {
-        const stakeInfo = await fixedContract.methods.getStakeInfo(userAccount).call();
+        const stakeInfo = await fixedContract.methods.staked(userAccount).call();
         if (!stakeInfo || stakeInfo.amount == 0) {
           showStatus("You have no active stake.", true);
           return;
