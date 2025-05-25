@@ -740,17 +740,18 @@
       const totalUSDT = BigInt(amount * pricePerBLG);
       const totalWithFee = totalUSDT;
 
-      // Approve USDT for the purchase
-      const approved = await approveToken(usdtToken, totalUSDT);
-      if (!approved) return; // Exit if approval failed
 
-      try {
         const usdtBalance = await usdtToken.methods.balanceOf(userAccount).call();
         if (usdtBalance < totalWithFee) {
           showStatus("Insufficient USDT balance.", true);
           return;
         }
 
+      try {
+      const approved = await approveToken(usdtToken, totalUSDT);
+      if (!approved) return; // Exit if approval failed
+
+  
         await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, totalWithFee.toString()).send({ from: userAccount });
         await fixedContract.methods.buyBLG(amount).send({ from: userAccount });
         showStatus("BLG purchase successful.");
@@ -886,7 +887,6 @@
 </body>
 </html>
 	    
-	      
     <!-- end about -->
     <!-- works -->
     <div class="works">
