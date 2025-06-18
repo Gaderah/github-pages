@@ -704,7 +704,7 @@ window.addEventListener('load', async () => {
       const accounts = await window.ethereum.request({ method: 'eth_accounts' });
       if (accounts.length > 0) {
         userAccount = accounts[0];
-        document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0,         6)}...${userAccount.slice(-4)}`;
+        document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
         await initContracts();
       }
     } catch (err) {
@@ -714,14 +714,14 @@ window.addEventListener('load', async () => {
     window.ethereum.on('accountsChanged', async (accounts) => {
       if (accounts.length > 0) {
         userAccount = accounts[0];
-        document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0,         6)}...${userAccount.slice(-4)}`;
+        document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
         showStatus("Wallet changed.");
         await updateStakedInfo();
         await fetchStakeTimestamp();
       }
     });
   } else {
-    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank"     class="underline text-blue-400">Install MetaMask</a>.`, true);
+    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
   }
 });
 
@@ -781,7 +781,7 @@ async function fetchStakeTimestamp() {
       const date = new Date(timestamp * 1000);
       const formatted = date.toLocaleString();
       document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${formatted}`;
-      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date(timestamp * 1000).toLocaleString()}`;
+      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date (timestamp * 1000).toLocaleString()}`;
       ? `Withdrawal available in: ${daysLeft} day(s)`
       : "Withdrawal available now!";
       document.getElementById("withdrawCountdown").textContent = countdownText;
