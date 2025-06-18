@@ -781,7 +781,7 @@ async function fetchStakeTimestamp() {
       const date = new Date(timestamp * 1000);
       const formatted = date.toLocaleString();
       document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${formatted}`;
-      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date            (timestamp * 1000).toLocaleString()}`;
+      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date(timestamp * 1000).toLocaleString()}`;
       ? `Withdrawal available in: ${daysLeft} day(s)`
       : "Withdrawal available now!";
       document.getElementById("withdrawCountdown").textContent = countdownText;
