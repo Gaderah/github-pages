@@ -764,7 +764,6 @@ async function connectWallet() {
 window.connectWallet = connectWallet;
 
 
-
 async function updateStakedInfo() {
   if (!window.ethereum || !window.web3 || !userAccount) return;
   try {
@@ -777,6 +776,9 @@ async function updateStakedInfo() {
     document.getElementById("stakedInfo").textContent = "Staked: --";
   }
 }
+
+
+const stakingDuration = 18 * 24 * 60 * 60; // 18 days in seconds
 
 
 async function fetchStakeTimestamp() {
@@ -818,39 +820,40 @@ let withdrawalConfirmed = false;
 let earlyWithdrawLocked = {}; // simple in-memory lock tracking
 
 
+
 async function checkWithdrawalStatus() {
-  if (!userAccount || !fixedContract) {
-    showStatus("Wallet not connected or contract not initialized.", true);
-    return;
-  }
-
-  try {
-    const stakeTimestamp = await fixedContract.methods.getStakeTimestamp(userAccount).call();
-    const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
-    const timeSinceStake = currentTime - stakeTimestamp;
-
-    // Example withdrawal rules (adjust to match your contract logic):
-    const firstWithdrawTime = 9 * 24 * 60 * 60; // 9 days in seconds
-    const secondWithdrawTime = 18 * 24 * 60 * 60; // 18 days in seconds
-
-    if (timeSinceStake >= secondWithdrawTime) {
-      await fixedContract.methods.withdrawStake().send({ from: userAccount });
-      showStatus("Second withdrawal successful.");
-    } else if (timeSinceStake >= firstWithdrawTime) {
-      await fixedContract.methods.withdrawStake().send({ from: userAccount });
-      showStatus("First withdrawal successful.");
-    } else {
-      const remainingTime = firstWithdrawTime - timeSinceStake;
-      showStatus(`You can withdraw in ${Math.ceil(remainingTime / 3600)} hours.`);
+try {
+    const stakingInfo = await fixedContract.methods.stakes(userAddress).call();
+    const stakedAmount = web3.utils.toBN(stakingInfo);
+    if (stake.amount == 0) {
+      alert("You have no active stake.");
+      return;
     }
 
-    await updateStakedInfo();
-    await fetchStakeTimestamp();
-  } catch (error) {
-    console.error("Withdrawal error:", error);
-    showStatus("Withdrawal failed or not yet allowed.", true);
+    const stakeStart = Number(stake.startTime);
+    const now = Math.floor(Date.now() / 1000);
+    const canWithdraw = now >= stakeStart + Number(stakingDuration);
+
+    if (!canWithdraw && !hasAcknowledgedPenalty) {
+      const remaining = (stakeStart + Number(stakingDuration)) - now;
+      const hoursLeft = Math.floor(remaining / 3600);
+      const minsLeft = Math.floor((remaining % 3600) / 60);
+      alert(⚠️ Withdrawal not allowed yet.\nYou must wait ${hoursLeft}h ${minsLeft}m to avoid       penalties or failed transactions.);
+      return;
+    }
+
+    // Allow withdrawal
+    await fixedContract.methods.withdrawStake().send({ from: userAddress });
   }
-}
+
+    showStatus("Withdrawal transaction sent.");
+    await updateStakedInfo();
+    hasAcknowledgedPenalty = false; // Reset in case new stake is placed
+  } catch (err) {
+    console.error("Withdraw error:", err);
+    showStatus("Withdrawal failed: " + err.message, true);
+  }
+
 
 window.checkWithdrawalStatus = checkWithdrawalStatus;
 
@@ -878,48 +881,13 @@ async function getStakedAmount() {
     const stakeInfo = await fixedContract.methods.stakes(account).call();
     const stakedAmount = web3.utils.fromWei(stakeInfo.amount, 'ether');
   
-    document.getElementById("stakedInfo").textContent = Staked: ${stakedAmount} BLG;
+    document.getElementById("stakedInfo").textContent = `Staked: ${stakedAmount} BLG`;
   } catch (err) {
     console.error("Error fetching staked amount:", err);
     document.getElementById("stakedInfo").textContent = "Staked: Error";
   }
 }
 
-const stakingDuration = 18 * 24 * 60 * 60; // 18 days in seconds
-
-async function checkWithdrawalStatus() {
-try {
-    const stakingInfo = await fixedContract.methods.stakes(userAddress).call();
-    const stakedAmount = web3.utils.toBN(stakingInfo);
-    if (stake.amount == 0) {
-      alert("You have no active stake.");
-      return;
-    }
-
-    const stakeStart = Number(stake.startTime);
-    const now = Math.floor(Date.now() / 1000);
-    const canWithdraw = now >= stakeStart + Number(stakingDuration);
-
-    if (!canWithdraw && !hasAcknowledgedPenalty) {
-      const remaining = (stakeStart + Number(stakingDuration)) - now;
-      const hoursLeft = Math.floor(remaining / 3600);
-      const minsLeft = Math.floor((remaining % 3600) / 60);
-      alert(⚠️ Withdrawal not allowed yet.\nYou must wait ${hoursLeft}h ${minsLeft}m to avoid penalties or failed transactions.);
-      return;
-    }
-
-    // Allow withdrawal
-    await fixedContract.methods.withdrawStake().send({ from: userAddress });
-  }
-
-showStatus("Withdrawal transaction sent.");
-    await updateStakedInfo();
-    hasAcknowledgedPenalty = false; // Reset in case new stake is placed
-  } catch (err) {
-    console.error("Withdraw error:", err);
-    showStatus("Withdrawal failed: " + err.message, true);
-  }
-}
 </script>
 </body>
 </html>
