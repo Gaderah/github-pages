@@ -679,6 +679,8 @@ async function buyBLG() {
   }
 }
 
+window.buyBLG = buyBLG;
+
 async function stakeTokens() {
   const amount = parseFloat(document.getElementById("stakeAmount").value);
   if (isNaN(amount) || amount <= 0) return;
@@ -696,6 +698,8 @@ async function stakeTokens() {
     showStatus("Staking failed.", true);
   }
 }
+
+window.stakeTokens = stakeTokens;
 
 window.addEventListener('load', async () => {
   if (window.ethereum) {
@@ -745,7 +749,7 @@ async function connectWallet() {
     if (!accounts || !accounts.length) {
       showStatus("No account found or connection rejected.", true);
       return;
-    }
+   }
     document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
     showStatus("Wallet connected.");
     initContracts();
@@ -756,6 +760,9 @@ async function connectWallet() {
     showStatus(`Wallet connection failed: ${err.message}`, true);
   }
 }
+
+window.connectWallet = connectWallet;
+
 
 
 async function updateStakedInfo() {
@@ -771,28 +778,34 @@ async function updateStakedInfo() {
   }
 }
 
+
 async function fetchStakeTimestamp() {
   if (!fixedContract || !userAccount) return;
 
   try {
     const timestamp = await fixedContract.methods.getStakeTimestamp(userAccount).call();
     if (timestamp && timestamp > 0) {
-      const countdownText = remaining > 0
-      const date = new Date(timestamp * 1000);
-      const formatted = date.toLocaleString();
+      const now = Math.floor(Date.now() / 1000);
+      const remaining = timestamp + 18 * 24 * 60 * 60 - now; // 18-day staking period
+      const daysLeft = Math.ceil(remaining / (60 * 60 * 24));
+
+      const formatted = new Date(timestamp * 1000).toLocaleString();
       document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${formatted}`;
-      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date(timestamp * 1000).toLocaleString()}`;
-      ? `Withdrawal available in: ${daysLeft} day(s)`
-      : "Withdrawal available now!";
-      document.getElementById("withdrawCountdown").textContent = countdownText;
+      document.getElementById("withdrawCountdown").textContent =
+        remaining > 0
+          ? `Withdrawal available in: ${daysLeft} day(s)`
+          : "Withdrawal available now!";
     } else {
       document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
+      document.getElementById("withdrawCountdown").textContent = "Withdrawal available in: --";
     }
   } catch (error) {
     console.error("Error fetching stake timestamp:", error);
     document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
+    document.getElementById("withdrawCountdown").textContent = "Withdrawal available in: --";
   }
 }
+
 
 function showStatus(message, isError = false) {
   const statusDiv = document.getElementById("status");
@@ -838,6 +851,8 @@ async function checkWithdrawalStatus() {
     showStatus("Withdrawal failed or not yet allowed.", true);
   }
 }
+
+window.checkWithdrawalStatus = checkWithdrawalStatus;
 
 async function proceedWithWithdrawal() {
   try {
