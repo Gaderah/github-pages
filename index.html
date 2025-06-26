@@ -844,7 +844,6 @@ try {
 
     // Allow withdrawal
     await fixedContract.methods.withdrawStake().send({ from: userAddress });
-  }
 
     showStatus("Withdrawal transaction sent.");
     await updateStakedInfo();
