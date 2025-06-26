@@ -823,7 +823,7 @@ let earlyWithdrawLocked = {}; // simple in-memory lock tracking
 
 async function checkWithdrawalStatus() {
 try {
-    const stakingInfo = await fixedContract.methods.stakes(userAddress).call();
+    const stakingInfo = await fixedContract.methods.stakes(userAccount).call();
     const stakedAmount = web3.utils.toBN(stakingInfo);
     if (stakingInfo.amount == 0) {
       alert("You have no active stake.");
