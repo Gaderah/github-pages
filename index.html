@@ -825,12 +825,12 @@ async function checkWithdrawalStatus() {
 try {
     const stakingInfo = await fixedContract.methods.stakes(userAddress).call();
     const stakedAmount = web3.utils.toBN(stakingInfo);
-    if (stake.amount == 0) {
+    if (stakingInfo.amount == 0) {
       alert("You have no active stake.");
       return;
     }
 
-    const stakeStart = Number(stake.startTime);
+    const stakeStart = Number(stakingInfo.startTime);
     const now = Math.floor(Date.now() / 1000);
     const canWithdraw = now >= stakeStart + Number(stakingDuration);
 
@@ -838,7 +838,7 @@ try {
       const remaining = (stakeStart + Number(stakingDuration)) - now;
       const hoursLeft = Math.floor(remaining / 3600);
       const minsLeft = Math.floor((remaining % 3600) / 60);
-      alert(⚠️ Withdrawal not allowed yet.\nYou must wait ${hoursLeft}h ${minsLeft}m to avoid       penalties or failed transactions.);
+      alert(`⚠️ Withdrawal not allowed yet.\nYou must wait ${hoursLeft}h ${minsLeft}m to avoid       penalties or failed transactions.`);
       return;
     }
 
