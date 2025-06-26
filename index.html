@@ -838,12 +838,12 @@ try {
       const remaining = (stakeStart + Number(stakingDuration)) - now;
       const hoursLeft = Math.floor(remaining / 3600);
       const minsLeft = Math.floor((remaining % 3600) / 60);
-      alert(`⚠️ Withdrawal not allowed yet.\nYou must wait ${hoursLeft}h ${minsLeft}m to avoid       penalties or failed transactions.`);
+      alert(`⚠️ Withdrawal not allowed yet.\nYou must wait ${hoursLeft}h ${minsLeft}m to avoid penalties or failed transactions.`);
       return;
     }
 
     // Allow withdrawal
-    await fixedContract.methods.withdrawStake().send({ from: userAddress });
+    await fixedContract.methods.withdrawStake().send({ from: userAccount });
 
     showStatus("Withdrawal transaction sent.");
     await updateStakedInfo();
@@ -852,7 +852,7 @@ try {
     console.error("Withdraw error:", err);
     showStatus("Withdrawal failed: " + err.message, true);
   }
-
+}
 
 window.checkWithdrawalStatus = checkWithdrawalStatus;
 
