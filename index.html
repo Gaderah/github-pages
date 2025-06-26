@@ -164,7 +164,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>BluGo Token Sale & Staking</title>
-  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.7.5/dist/web3.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-900 text-white font-sans">
@@ -209,6 +209,7 @@ const USDT_TOKEN_ADDRESS = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
 const ownerAddress = "0x886B317b6AB2a5a6Df46C27f445DE858a22f678B";
 
 let fixedContract, blgToken, usdtToken;
+let hasAcknowledgedPenalty = false;
 
 
 const FIXED_CONTRACT_ABI = [
@@ -809,13 +810,6 @@ async function fetchStakeTimestamp() {
 }
 
 
-function showStatus(message, isError = false) {
-  const statusDiv = document.getElementById("status");
-  statusDiv.innerHTML = message;
-  statusDiv.classList.remove("text-green-400", "text-red-400");
-  statusDiv.classList.add(isError ? "text-red-400" : "text-green-400");
-}
-
 let withdrawalConfirmed = false;
 let earlyWithdrawLocked = {}; // simple in-memory lock tracking
 
@@ -824,7 +818,7 @@ let earlyWithdrawLocked = {}; // simple in-memory lock tracking
 async function checkWithdrawalStatus() {
 try {
     const stakingInfo = await fixedContract.methods.stakes(userAccount).call();
-    const stakedAmount = web3.utils.toBN(stakingInfo);
+    const stakedAmount = web3.utils.toBN(stakingInfo.amount);
     if (stakingInfo.amount == 0) {
       alert("You have no active stake.");
       return;
