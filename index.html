@@ -711,6 +711,8 @@ window.addEventListener('load', async () => {
         userAccount = accounts[0];
         document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
         await initContracts();
+        await updateStakedInfo();
+        await fetchStakeTimestamp();
       }
     } catch (err) {
       console.error("Error getting accounts:", err);
@@ -721,6 +723,7 @@ window.addEventListener('load', async () => {
         userAccount = accounts[0];
         document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
         showStatus("Wallet changed.");
+        await initContracts();
         await updateStakedInfo();
         await fetchStakeTimestamp();
       }
