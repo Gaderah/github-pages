@@ -666,12 +666,12 @@ async function buyBLG() {
   const amount = parseFloat(document.getElementById("buyAmount").value);
   if (isNaN(amount) || amount <= 0) return;
 
-  const pricePerBLG = 2 * 10**6;
-  const totalUSDT = BigInt(amount * 1e6);
+  const pricePerBLG = 2 * 1e6;
+  const totalUSDT = BigInt(amount * pricePerBLG);
   const totalWithFee = totalUSDT;
 
   try {
-    await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, totalWithFee.toString()).send({ from: userAccount });
+    await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, totalUSDT.toString()).send({ from: userAccount });
     await fixedContract.methods.buyBLG(amount).send({ from: userAccount });
     showStatus("BLG purchase successful.");
   } catch (error) {
