@@ -768,9 +768,8 @@ window.connectWallet = connectWallet;
 async function updateStakedInfo() {
   if (!window.ethereum || !window.web3 || !userAccount) return;
   try {
-    const stakedAmount = await fixedContract.methods.staked(userAccount).call();
-    const decimals = 18; // adjust if your token uses a different decimal
-    const formatted = web3.utils.fromWei(stakedAmount.toString(), 'ether');
+    const stake = await fixedContract.methods.stakes(userAccount).call();
+    const formatted = web3.utils.fromWei(stake.amount.toString(), 'ether');
     document.getElementById("stakedInfo").textContent = `Staked: ${formatted} BLG`;
   } catch (error) {
     console.error("Error fetching staked amount:", error);
@@ -786,10 +785,12 @@ async function fetchStakeTimestamp() {
   if (!fixedContract || !userAccount) return;
 
   try {
-    const timestamp = await fixedContract.methods.getStakeTimestamp(userAccount).call();
-    if (timestamp && timestamp > 0) {
+    const stake = await fixedContract.methods.stakes(userAccount).call();
+    const timestamp = Number(stake.startTime);
+
+    if (timestamp > 0) {
       const now = Math.floor(Date.now() / 1000);
-      const remaining = timestamp + 18 * 24 * 60 * 60 - now; // 18-day staking period
+      const remaining = timestamp + stakingDuration - now;
       const daysLeft = Math.ceil(remaining / (60 * 60 * 24));
 
       const formatted = new Date(timestamp * 1000).toLocaleString();
