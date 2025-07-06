@@ -660,8 +660,28 @@ const APPROVE_ABI = [
     "outputs": [{ "name": "", "type": "bool" }],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [{ "name": "owner", "type": "address" }],
+    "name": "balanceOf",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [
+      { "name": "owner", "type": "address" },
+      { "name": "spender", "type": "address" }
+    ],
+    "name": "allowance",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
+
 
 
 window.addEventListener('load', async () => {
@@ -756,21 +776,46 @@ window.buyBLG = buyBLG;
 
 async function stakeTokens() {
   const amount = parseFloat(document.getElementById("stakeAmount").value);
-  if (isNaN(amount) || amount <= 0) return;
+  if (isNaN(amount) || amount <= 0) {
+    showStatus("Enter a valid BLG amount to stake.", true);
+    return;
+  }
+
   const stakeAmount = web3.utils.toWei(amount.toString(), 'ether');
 
   try {
-    await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmount.toString()).send({ from: userAccount });
-    await fixedContract.methods.stake(stakeAmount.toString()).send({ from: userAccount });
+    // 1. Fetch balance
+    const balance = await blgToken.methods.balanceOf(userAccount).call();
+    console.log("User BLG balance:", web3.utils.fromWei(balance));
+
+    if (web3.utils.toBN(balance).lt(web3.utils.toBN(stakeAmount))) {
+      showStatus("Insufficient BLG balance.", true);
+      return;
+    }
+
+    // 2. Check current allowance
+    const allowance = await blgToken.methods.allowance(userAccount, FIXED_CONTRACT_ADDRESS).call();
+    console.log("BLG allowance:", web3.utils.fromWei(allowance));
+
+    if (web3.utils.toBN(allowance).lt(web3.utils.toBN(stakeAmount))) {
+      console.log("Approving BLG for staking...");
+      await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmount).send({ from: userAccount });
+    }
+
+    // 3. Call stake
+    console.log("Calling stake() with:", stakeAmount);
+    await fixedContract.methods.stake(stakeAmount).send({ from: userAccount });
+
     localStorage.setItem(`earlyLock_${userAccount}`, Date.now().toString());
     showStatus("Staking successful.");
     await updateStakedInfo();
     await fetchStakeTimestamp();
   } catch (error) {
-    console.error(error);
-    showStatus("Staking failed.", true);
+    console.error("Stake failed:", error);
+    showStatus("Staking failed: " + (error?.message || "Check balance, approval, or stake conditions."), true);
   }
 }
+
 
 window.stakeTokens = stakeTokens;
 
