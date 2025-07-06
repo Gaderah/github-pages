@@ -155,6 +155,7 @@
     <!-- end wallet -->
     <!-- about -->
 
+	    
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -662,45 +663,6 @@ const APPROVE_ABI = [
   }
 ];
 
-async function buyBLG() {
-  const amount = parseFloat(document.getElementById("buyAmount").value);
-  if (isNaN(amount) || amount <= 0) return;
-
-  const pricePerBLG = 2 * 1e6;
-  const totalUSDT = BigInt(amount * pricePerBLG);
-  const totalWithFee = totalUSDT;
-
-  try {
-    await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, totalUSDT.toString()).send({ from: userAccount });
-    await fixedContract.methods.buyBLG(amount).send({ from: userAccount });
-    showStatus("BLG purchase successful.");
-  } catch (error) {
-    console.error(error);
-    showStatus("Purchase failed.", true);
-  }
-}
-
-window.buyBLG = buyBLG;
-
-async function stakeTokens() {
-  const amount = parseFloat(document.getElementById("stakeAmount").value);
-  if (isNaN(amount) || amount <= 0) return;
-  const stakeAmount = web3.utils.toWei(amount.toString(), 'ether');
-
-  try {
-    await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmount.toString()).send({ from: userAccount });
-    await fixedContract.methods.stake(stakeAmount.toString()).send({ from: userAccount });
-    localStorage.setItem(`earlyLock_${userAccount}`, Date.now().toString());
-    showStatus("Staking successful.");
-    await updateStakedInfo();
-    await fetchStakeTimestamp();
-  } catch (error) {
-    console.error(error);
-    showStatus("Staking failed.", true);
-  }
-}
-
-window.stakeTokens = stakeTokens;
 
 window.addEventListener('load', async () => {
   if (window.ethereum) {
@@ -740,6 +702,7 @@ function initContracts() {
   usdtToken = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
 }
 
+
 async function connectWallet() {
   if (typeof window.ethereum === "undefined") {
     showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
@@ -768,55 +731,48 @@ async function connectWallet() {
 window.connectWallet = connectWallet;
 
 
-async function updateStakedInfo() {
-  if (!window.ethereum || !window.web3 || !userAccount) return;
+async function buyBLG() {
+  const amount = parseFloat(document.getElementById("buyAmount").value);
+  if (isNaN(amount) || amount <= 0) {
+    showStatus("Invalid amount entered.", true);
+    return;
+  }
+
+  const blgAmount = Math.floor(amount); // Convert float to whole number of BLG tokens
+  const usdtAmount = blgAmount * 2 * 1e6; // 2 USDT per BLG (6 decimals for USDT)
+
   try {
-    const stake = await fixedContract.methods.stakes(userAccount).call();
-    const formatted = web3.utils.fromWei(stake.amount.toString(), 'ether');
-    document.getElementById("stakedInfo").textContent = `Staked: ${formatted} BLG`;
+    await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, usdtAmount.toString()).send({ from: userAccount });
+    await fixedContract.methods.buyBLG(blgAmount).send({ from: userAccount });
+    showStatus("BLG purchase successful.");
   } catch (error) {
-    console.error("Error fetching staked amount:", error);
-    document.getElementById("stakedInfo").textContent = "Staked: --";
+    console.error(error);
+    showStatus("Purchase failed: " + (error.message || "Internal error"), true);
   }
 }
 
+window.buyBLG = buyBLG;
 
-const stakingDuration = 18 * 24 * 60 * 60; // 18 days in seconds
 
-
-async function fetchStakeTimestamp() {
-  if (!fixedContract || !userAccount) return;
+async function stakeTokens() {
+  const amount = parseFloat(document.getElementById("stakeAmount").value);
+  if (isNaN(amount) || amount <= 0) return;
+  const stakeAmount = web3.utils.toWei(amount.toString(), 'ether');
 
   try {
-    const stake = await fixedContract.methods.stakes(userAccount).call();
-    const timestamp = Number(stake.startTime);
-
-    if (timestamp > 0) {
-      const now = Math.floor(Date.now() / 1000);
-      const remaining = timestamp + stakingDuration - now;
-      const daysLeft = Math.ceil(remaining / (60 * 60 * 24));
-
-      const formatted = new Date(timestamp * 1000).toLocaleString();
-      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${formatted}`;
-      document.getElementById("withdrawCountdown").textContent =
-        remaining > 0
-          ? `Withdrawal available in: ${daysLeft} day(s)`
-          : "Withdrawal available now!";
-    } else {
-      document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
-      document.getElementById("withdrawCountdown").textContent = "Withdrawal available in: --";
-    }
+    await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmount.toString()).send({ from: userAccount });
+    await fixedContract.methods.stake(stakeAmount.toString()).send({ from: userAccount });
+    localStorage.setItem(`earlyLock_${userAccount}`, Date.now().toString());
+    showStatus("Staking successful.");
+    await updateStakedInfo();
+    await fetchStakeTimestamp();
   } catch (error) {
-    console.error("Error fetching stake timestamp:", error);
-    document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
-    document.getElementById("withdrawCountdown").textContent = "Withdrawal available in: --";
+    console.error(error);
+    showStatus("Staking failed.", true);
   }
 }
 
-
-let withdrawalConfirmed = false;
-let earlyWithdrawLocked = {}; // simple in-memory lock tracking
-
+window.stakeTokens = stakeTokens;
 
 
 async function checkWithdrawalStatus() {
@@ -854,6 +810,7 @@ try {
 
 window.checkWithdrawalStatus = checkWithdrawalStatus;
 
+
 async function proceedWithWithdrawal() {
   try {
     await fixedContract.methods.withdrawStake().send({ from: userAccount });
@@ -865,6 +822,53 @@ async function proceedWithWithdrawal() {
     showStatus("Withdraw failed.", true);
   }
 }
+
+
+async function fetchStakeTimestamp() {
+  if (!fixedContract || !userAccount) return;
+
+  try {
+    const stake = await fixedContract.methods.stakes(userAccount).call();
+    const timestamp = Number(stake.startTime);
+
+    if (timestamp > 0) {
+      const now = Math.floor(Date.now() / 1000);
+      const remaining = timestamp + stakingDuration - now;
+      const daysLeft = Math.ceil(remaining / (60 * 60 * 24));
+
+      const formatted = new Date(timestamp * 1000).toLocaleString();
+      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${formatted}`;
+      document.getElementById("withdrawCountdown").textContent =
+        remaining > 0
+          ? `Withdrawal available in: ${daysLeft} day(s)`
+          : "Withdrawal available now!";
+    } else {
+      document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
+      document.getElementById("withdrawCountdown").textContent = "Withdrawal available in: --";
+    }
+  } catch (error) {
+    console.error("Error fetching stake timestamp:", error);
+    document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
+    document.getElementById("withdrawCountdown").textContent = "Withdrawal available in: --";
+  }
+}
+
+
+async function updateStakedInfo() {
+  if (!window.ethereum || !window.web3 || !userAccount) return;
+  try {
+    const stake = await fixedContract.methods.stakes(userAccount).call();
+    const formatted = web3.utils.fromWei(stake.amount.toString(), 'ether');
+    document.getElementById("stakedInfo").textContent = `Staked: ${formatted} BLG`;
+  } catch (error) {
+    console.error("Error fetching staked amount:", error);
+    document.getElementById("stakedInfo").textContent = "Staked: --";
+  }
+}
+
+
+const stakingDuration = 18 * 24 * 60 * 60; // 18 days in seconds
+
 
 function showStatus(message, isError = false) {
   const statusDiv = document.getElementById("status");
@@ -885,9 +889,16 @@ async function getStakedAmount() {
   }
 }
 
+
+
+let withdrawalConfirmed = false;
+let earlyWithdrawLocked = {}; // simple in-memory lock tracking
+
+
 </script>
 </body>
 </html>
+	    
 	    
     <!-- end about -->
     <!-- works -->
