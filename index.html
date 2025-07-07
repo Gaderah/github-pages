@@ -1179,7 +1179,11 @@ async function stakeTokens() {
 
     // 3. Call stake
     console.log("Calling stake() with:", stakeAmount);
-    await fixedContract.methods.stake(stakeAmount).send({ from: userAccount });
+    const gasEstimate = await fixedContract.methods.stake(stakeAmount).estimateGas({ from: userAccount });
+    await fixedContract.methods.stake(stakeAmount).send({
+    from: userAccount,
+    gas: gasEstimate + 5000  // Add slight buffer
+});
 
     localStorage.setItem(`earlyLock_${userAccount}`, Date.now().toString());
     showStatus("Staking successful.");
