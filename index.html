@@ -155,7 +155,7 @@
     <!-- end wallet -->
     <!-- about -->
 
-	    
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1138,7 +1138,8 @@ async function buyBLG() {
 
   try {
     await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, usdtAmount.toString()).send({ from: userAccount });
-    await fixedContract.methods.buyBLG(blgAmount).send({ from: userAccount });
+    const gasEstimate = await fixedContract.methods.buyBLG(blgAmount).estimateGas({ from: userAccount });
+    await fixedContract.methods.buyBLG(blgAmount).send({ from: userAccount, gas: gasEstimate + 5000 });
     showStatus("BLG purchase successful.");
   } catch (error) {
     console.error(error);
@@ -1321,8 +1322,7 @@ let earlyWithdrawLocked = {}; // simple in-memory lock tracking
 
 </script>
 </body>
-</html>
-	    
+</html>	    
 	    
     <!-- end about -->
     <!-- works -->
