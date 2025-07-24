@@ -1204,12 +1204,19 @@ async function checkWithdrawalStatus() {
 try {
     const stakingInfo = await fixedContract.methods.stakes(userAccount).call();
     const stakedAmount = web3.utils.toBN(stakingInfo.amount);
-    if (stakingInfo.amount == 0) {
+
+    const withdrawButton = document.querySelector('button[onclick="checkWithdrawalStatus()"]');
+
+    if (stakedAmount.isZero()) {
       alert("You have no active stake.");
+      showStatus("No active stake found.");
+      if (withdrawButton) withdrawButton.disabled = true;
       return;
+      } else {
+      if (withdrawButton) withdrawButton.disabled = false;
     }
 
-    const stakeStart = Number(stakingInfo.startTime);
+    const stakeStart = Number(stakingInfo.startTime);   
     const now = Math.floor(Date.now() / 1000);
     const canWithdraw = now >= stakeStart + Number(stakingDuration);
 
@@ -1322,7 +1329,7 @@ let earlyWithdrawLocked = {}; // simple in-memory lock tracking
 
 </script>
 </body>
-</html>	    
+</html>    
 	    
     <!-- end about -->
     <!-- works -->
