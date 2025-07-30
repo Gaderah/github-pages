@@ -1211,6 +1211,7 @@ try {
       alert("You have no active stake.");
       showStatus("No active stake found.");
       if (withdrawButton) withdrawButton.disabled = true;
+      await updateStakedInfo(); // ⬅ Update display immediately
       return;
       } else {
       if (withdrawButton) withdrawButton.disabled = false;
@@ -1232,8 +1233,9 @@ try {
     await fixedContract.methods.withdrawStake().send({ from: userAccount });
 
     showStatus("Withdrawal transaction sent.");
-    await updateStakedInfo();
     hasAcknowledgedPenalty = false; // Reset in case new stake is placed
+    if (withdrawButton) withdrawButton.disabled = true; // ⬅ Disable button after withdrawal
+    await updateStakedInfo();
   } catch (err) {
     console.error("Withdraw error:", err);
     showStatus("Withdrawal failed: " + err.message, true);
@@ -1329,7 +1331,7 @@ let earlyWithdrawLocked = {}; // simple in-memory lock tracking
 
 </script>
 </body>
-</html>    
+</html>   
 	    
     <!-- end about -->
     <!-- works -->
