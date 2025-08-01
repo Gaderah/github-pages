@@ -1212,6 +1212,7 @@ try {
       showStatus("No active stake found.");
       if (withdrawButton) withdrawButton.disabled = true;
       await updateStakedInfo(); // ⬅ Update display immediately
+      await fetchStakeTimestamp();
       return;
       } else {
       if (withdrawButton) withdrawButton.disabled = false;
@@ -1236,6 +1237,7 @@ try {
     hasAcknowledgedPenalty = false; // Reset in case new stake is placed
     if (withdrawButton) withdrawButton.disabled = true; // ⬅ Disable button after withdrawal
     await updateStakedInfo();
+    await fetchStakeTimestamp();
   } catch (err) {
     console.error("Withdraw error:", err);
     showStatus("Withdrawal failed: " + err.message, true);
@@ -1387,3 +1389,4 @@ let earlyWithdrawLocked = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
