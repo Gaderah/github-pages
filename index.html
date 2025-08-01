@@ -1266,8 +1266,9 @@ async function fetchStakeTimestamp() {
   try {
     const stake = await fixedContract.methods.stakes(userAccount).call();
     const timestamp = Number(stake.startTime);
+    const stakedAmount = web3.utils.toBN(stake.amount);
 
-    if (timestamp > 0) {
+    if (timestamp > 0 && !stakedAmount.isZero()) {
       const now = Math.floor(Date.now() / 1000);
       const remaining = timestamp + stakingDuration - now;
       const daysLeft = Math.ceil(remaining / (60 * 60 * 24));
@@ -1335,6 +1336,7 @@ let earlyWithdrawLocked = {}; // simple in-memory lock tracking
 </body>
 </html>   
 	    
+	    
     <!-- end about -->
     <!-- works -->
     <div class="works">
@@ -1389,4 +1391,5 @@ let earlyWithdrawLocked = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
