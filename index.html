@@ -1209,10 +1209,11 @@ async function checkWithdrawalStatus() {
 try {
     const stakingInfo = await fixedContract.methods.stakes(userAccount).call();
     const stakedAmount = web3.utils.toBN(stakingInfo.amount);
-
+    const startTime = Number(stakeInfo.startTime);
+    const claimed = stakeInfo.claimed;
     const withdrawButton = document.querySelector('button[onclick="checkWithdrawalStatus()"]');
 
-    if (stakedAmount.isZero()) {
+    if (claimed || stakedAmount.isZero()) {
       alert("You have no active stake.");
       showStatus("No active stake found.");
       if (withdrawButton) withdrawButton.disabled = true;
@@ -1315,12 +1316,13 @@ async function updateStakedInfo() {
 
 const stakingDuration = 18 * 24 * 60 * 60; // 18 days in seconds
 
-	
+
 function showStatus(message, isError = false) {
   const statusDiv = document.getElementById("status");
   statusDiv.innerHTML = message;
   statusDiv.className = isError ? 'text-red-400' : 'text-green-400';
 }
+
 
 async function getStakedAmount() {
   try {
@@ -1334,13 +1336,15 @@ async function getStakedAmount() {
   }
 }
 
+
+
 let withdrawalConfirmed = false;
 let earlyWithdrawLock = {}; // simple in-memory lock tracking
 
 
 </script>
 </body>
-</html>   
+</html>  
 	    
 	    
     <!-- end about -->
@@ -1397,6 +1401,7 @@ let earlyWithdrawLock = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
