@@ -1160,7 +1160,7 @@ async function stakeTokens() {
   const stakeAmount = web3.utils.toWei(amount.toString(), 'ether');
 
   try {
-    // 1. Fetch balance
+    // Fetch balance
     const balance = await blgToken.methods.balanceOf(userAccount).call();
     console.log("User BLG balance:", web3.utils.fromWei(balance));
 
@@ -1169,7 +1169,7 @@ async function stakeTokens() {
       return;
     }
 
-    // 2. Check current allowance
+    // Check current allowance
     const allowance = await blgToken.methods.allowance(userAccount, FIXED_CONTRACT_ADDRESS).call();
     console.log("BLG allowance:", web3.utils.fromWei(allowance));
 
@@ -1178,7 +1178,7 @@ async function stakeTokens() {
       await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmount).send({ from: userAccount });
     }
 
-    // 3. Call stake
+    // Call stake
     console.log("Calling stake() with:", stakeAmount);
     const gasEstimate = await fixedContract.methods.stake(stakeAmount).estimateGas({ from: userAccount });
     await fixedContract.methods.stake(stakeAmount).send({
@@ -1186,10 +1186,15 @@ async function stakeTokens() {
     gas: gasEstimate + 5000  // Add slight buffer
 });
 
-    localStorage.setItem(`earlyLock_${userAccount}`, Date.now().toString());
+    // Use in-memory storage instead of localStorage
+    earlyWithdrawLock[userAccount] = Date.now();
     showStatus("Staking successful.");
+
+    // Add small delay to ensure blockchain state is updated
+    setTimeout(async () => {
     await updateStakedInfo();
     await fetchStakeTimestamp();
+    }, 2000);
   } catch (error) {
     console.error("Stake failed:", error);
     showStatus("Staking failed: " + (error?.message || "Check balance, approval, or stake conditions."), true);
@@ -1236,8 +1241,12 @@ try {
     showStatus("Withdrawal transaction sent.");
     hasAcknowledgedPenalty = false; // Reset in case new stake is placed
     if (withdrawButton) withdrawButton.disabled = true; // ⬅ Disable button after withdrawal
+
+    // Add delay to ensure blockchain state is updated before refreshing UI
+    setTimeout(async () => {
     await updateStakedInfo();
     await fetchStakeTimestamp();
+    }, 3000);
   } catch (err) {
     console.error("Withdraw error:", err);
     showStatus("Withdrawal failed: " + err.message, true);
@@ -1306,13 +1315,12 @@ async function updateStakedInfo() {
 
 const stakingDuration = 18 * 24 * 60 * 60; // 18 days in seconds
 
-
+	
 function showStatus(message, isError = false) {
   const statusDiv = document.getElementById("status");
   statusDiv.innerHTML = message;
   statusDiv.className = isError ? 'text-red-400' : 'text-green-400';
 }
-
 
 async function getStakedAmount() {
   try {
@@ -1326,10 +1334,8 @@ async function getStakedAmount() {
   }
 }
 
-
-
 let withdrawalConfirmed = false;
-let earlyWithdrawLocked = {}; // simple in-memory lock tracking
+let earlyWithdrawLock = {}; // simple in-memory lock tracking
 
 
 </script>
@@ -1391,5 +1397,6 @@ let earlyWithdrawLocked = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
