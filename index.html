@@ -1207,15 +1207,18 @@ window.stakeTokens = stakeTokens;
 
 async function checkWithdrawalStatus() {
 try {
-    const stakingInfo = await fixedContract.methods.stakes(userAccount).call();
-    const stakedAmount = web3.utils.toBN(stakingInfo.amount);
+    const stakeInfo = await fixedContract.methods.getStakeInfo(userAccount).call();
+    const stakedAmount = web3.utils.toBN(stakeInfo.amount);
     const startTime = Number(stakeInfo.startTime);
     const claimed = stakeInfo.claimed;
     const withdrawButton = document.querySelector('button[onclick="checkWithdrawalStatus()"]');
 
     if (claimed || stakedAmount.isZero()) {
       alert("You have no active stake.");
-      showStatus("No active stake found.");
+      showStatus(claimed ? "Withdrawal already claimed." : "No active stake found.");
+      document.getElementById("withdrawCountdown").textContent = "Withdrawal available in: --";
+      document.getElementById("stakedInfo").textContent = "Staked: --";
+      document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
       if (withdrawButton) withdrawButton.disabled = true;
       await updateStakedInfo(); // ⬅ Update display immediately
       await fetchStakeTimestamp();
@@ -1337,7 +1340,6 @@ async function getStakedAmount() {
 }
 
 
-
 let withdrawalConfirmed = false;
 let earlyWithdrawLock = {}; // simple in-memory lock tracking
 
@@ -1401,6 +1403,7 @@ let earlyWithdrawLock = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
