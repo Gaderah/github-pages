@@ -1062,6 +1062,7 @@ const APPROVE_ABI = [
 window.addEventListener('load', async () => {
   if (window.ethereum) {
     web3 = new Web3(window.ethereum);
+    checkIfWithdrawnOnConnect();
     try {
       const accounts = await window.ethereum.request({ method: 'eth_accounts' });
       if (accounts.length > 0) {
@@ -1124,6 +1125,42 @@ async function connectWallet() {
 }
 
 window.connectWallet = connectWallet;
+
+
+async function checkIfWithdrawnOnConnect() {
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const user = accounts[0];
+
+    const stakeInfo = await fixedContract.methods.getStakeInfo(user).call();
+    const stakedAmount = web3.utils.toBN(stakeInfo.amount);
+    const startTime = Number(stakeInfo.startTime);
+    const claimed = stakeInfo.claimed;
+
+    if (claimed) {
+      showStatus("✅ Stake has already been withdrawn.");
+      document.getElementById("withdrawCountdown").textContent = "Already withdrawn.";
+    } else if (stakedAmount.isZero()) {
+      showStatus("ℹ️ No active stake found.");
+      document.getElementById("withdrawCountdown").textContent = "No stake yet.";
+    } else {
+      const now = Math.floor(Date.now() / 1000);
+      const unlockTime = startTime + 18 * 24 * 60 * 60;
+      if (now >= unlockTime) {
+        showStatus("✅ Stake is withdrawable.");
+        document.getElementById("withdrawCountdown").textContent = "Available to withdraw now.";
+      } else {
+        const remaining = unlockTime - now;
+        document.getElementById("withdrawCountdown").textContent = `⏳ Withdraw available in: ${formatTime(remaining)}`;
+      }
+    }
+
+  } catch (err) {
+    console.error("❌ Error checking stake status on wallet connect:", err);
+    showStatus("⚠️ Failed to check withdrawal status.");
+  }
+}
+
 
 
 async function buyBLG() {
@@ -1397,6 +1434,7 @@ let earlyWithdrawLock = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
