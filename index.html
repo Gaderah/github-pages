@@ -156,6 +156,197 @@
     <!-- about -->
 
 
+stakes(address) will return the default values (0, 0) for an address that has never staked. It should not revert unless the contract does something custom when accessing the mapping.
+
+0x1A79B993440687B64bCc74Bd3f2e079651B68Cd4
+
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+interface IERC20 {
+    function transfer(address to, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+}
+
+contract BluGoFixedSaleStaking {
+    address public owner;
+    IERC20 public usdt;
+    IERC20 public blg;
+
+    uint256 public constant BLG_PRICE = 2 * 10**6; // 2 USDT with 6 decimals
+    uint256 public stakingRewardPercent = 10; // 10% reward
+    uint256 public stakingDuration = 18 days;
+
+    struct Stake {
+        uint256 amount;
+        uint256 startTime;
+        bool claimed;
+    }
+
+    mapping(address => Stake) public stakes;
+    mapping(address => uint256) public stakeTimestamp;
+    mapping(address => bool) public earlyWithdrawLock;
+    mapping(address => uint256) public lockEnd;
+
+    // Reentrancy Guard
+    bool private locked;
+    modifier nonReentrant() {
+        require(!locked, "ReentrancyGuard: reentrant call");
+        locked = true;
+        _;
+        locked = false;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
+        _;
+    }
+
+    event TokensPurchased(address indexed buyer, uint256 blgAmount, uint256 usdtAmount);
+    event StakingRewardChanged(uint256 newRewardPercent);
+    event StakingDurationChanged(uint256 newDuration);
+    event Staked(address indexed user, uint256 amount);
+    event Withdrawn(address indexed user, uint256 amount, uint256 reward);
+
+    constructor(address _usdt, address _blg) {
+        owner = msg.sender; // Set the owner to the deployer
+        usdt = IERC20(_usdt);
+        blg = IERC20(_blg);
+    }
+
+    // Fallback function to revert any Ether sent to the contract
+    receive() external payable {
+        revert("Contract does not accept Ether");
+    }
+
+    // Buy BLG at a fixed price of 2 USDT per BLG (100% goes to owner's wallet)
+    function buyBLG(uint256 blgAmount) external {
+        require(blgAmount > 0, "BLG amount must be greater than zero");
+        uint256 usdtAmount = blgAmount * BLG_PRICE;
+
+        // Check if the contract has enough BLG tokens available for sale
+        uint256 contractBLGBalance = blg.balanceOf(address(this));
+        require(contractBLGBalance >= blgAmount * 1e18, "Not enough BLG in contract");
+
+        // Transfer total USDT directly to owner as fee
+        require(usdt.transferFrom(msg.sender, owner, usdtAmount), "USDT transfer to owner failed");
+
+        // Transfer BLG to buyer
+        require(blg.transfer(msg.sender, blgAmount * 1e18), "BLG transfer failed");
+
+        // Emit the TokensPurchased event
+        emit TokensPurchased(msg.sender, blgAmount, usdtAmount);
+    }
+
+    // Stake BLG tokens
+    function stake(uint256 amount) external {
+        require(amount > 0, "Cannot stake 0");
+        require(stakes[msg.sender].amount == 0, "Already staked");
+
+        // Ensure the transfer is successful
+        require(blg.transferFrom(msg.sender, address(this), amount), "Stake transfer failed");
+
+        // Set stake details before external calls
+        stakes[msg.sender] = Stake({
+            amount: amount,
+            startTime: block.timestamp,
+            claimed: false
+        });
+
+        stakeTimestamp[msg.sender] = block.timestamp;
+        earlyWithdrawLock[msg.sender] = false; // reset lock on new stake
+        lockEnd[msg.sender] = 0;
+
+        // Emit the Staked event
+        emit Staked(msg.sender, amount);
+    }
+
+    // Lock user for early withdrawal penalty (can be called by owner as needed)
+    function lockUser ForEarlyWithdraw(address user) external onlyOwner {
+        earlyWithdrawLock[user] = true;
+        lockEnd[user] = block.timestamp + 30 days;
+    }
+
+    // Internal helper to unlock user after lock period expires
+    function _unlockUser (address user) internal {
+        earlyWithdrawLock[user] = false;
+        lockEnd[user] = 0;
+    }
+
+    // Check if user can withdraw stake (depending on stake time and locks)
+    function canWithdraw(address user) public view returns (bool) {
+        if (earlyWithdrawLock[user]) {
+            if (block.timestamp < lockEnd[user]) {
+                return false;
+            } else {
+                return true; // Indicate that the user can withdraw, but they need to call clearExpiredLock
+            }
+        }
+        return block.timestamp >= stakeTimestamp[user] + stakingDuration;
+    }
+
+    // Call this function to clear expired lock manually
+    function clearExpiredLock() external {
+        require(earlyWithdrawLock[msg.sender], "User  not locked");
+        require(block.timestamp >= lockEnd[msg.sender], "Lock period not expired");
+        _unlockUser (msg.sender);
+    }
+
+    // Withdraw staked tokens + reward
+    function withdrawStake() external nonReentrant {
+        Stake storage s = stakes[msg.sender];
+        require(s.amount > 0, "Nothing staked");
+        require(!s.claimed, "Already claimed");
+
+        require(canWithdraw(msg.sender), "Withdrawal locked or too early");
+
+        // Set claimed status before transferring tokens to prevent reentrancy
+        s.claimed = true;
+
+        uint256 reward = (s.amount * stakingRewardPercent) / 100;
+        require(blg.transfer(msg.sender, s.amount + reward), "Withdraw failed");
+
+        // Clear stakeTimestamp and locks on withdrawal
+        stakeTimestamp[msg.sender] = 0;
+        if (earlyWithdrawLock[msg.sender]) {
+            _unlockUser (msg.sender);
+        }
+
+        // Emit the Withdrawn event
+        emit Withdrawn(msg.sender, s.amount, reward);
+    }
+
+    // View function to get stake info
+    function getStakeInfo(address user) external view returns (uint256 amount, uint256 startTime, bool claimed) {
+        Stake storage s = stakes[user];
+        return (s.amount, s.startTime, s.claimed);
+    }
+
+    function setStakingReward(uint256 rewardPercent) external onlyOwner {
+        require(rewardPercent > 0, "Reward percent must be greater than zero");
+        stakingRewardPercent = rewardPercent;
+        emit StakingRewardChanged(rewardPercent);
+    }
+
+    function setStakingDuration(uint256 duration) external onlyOwner {
+        require(duration > 0, "Duration must be greater than zero");
+        stakingDuration = duration;
+        emit StakingDurationChanged(duration);
+    }
+
+    function withdrawUSDT(uint256 amount) external onlyOwner {
+        require(usdt.transfer(owner, amount), "Withdraw failed");
+    }
+
+    function withdrawBLG(uint256 amount) external onlyOwner {
+        require(blg.transfer(owner, amount), "Withdraw failed");
+    }
+}
+
+----------------------------
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1246,46 +1437,45 @@ window.stakeTokens = stakeTokens;
 
 async function checkWithdrawalStatus() {
   try {
-    const stakeInfo = await fixedContract.methods.stakes(userAccount).call();
-    const stakedAmount = web3.utils.toBN(stakingInfo.amount);
-    const stakeStart = Number(stakingInfo.startTime);
-    const claimed = stakingInfo.claimed;
+    const stakeInfo = await fixedContract.methods.getStakeInfo(userAccount).call();
+    const stakedAmount = web3.utils.toBN(stakeInfo.amount);
+    const startTime = Number(stakeInfo.startTime);
+    const claimed = stakeInfo.claimed;
 
-    const withdrawButton = document.querySelector('button[onclick="checkWithdrawalStatus()"]');
-
-    if (stakedAmount.isZero()) {
-      alert("You have no active stake.");
-      showStatus("No active stake found.");
-      if (withdrawButton) withdrawButton.disabled = true;
+    if (claimed) {
+      showStatus("Stake already withdrawn.");
+      document.getElementById("withdrawCountdown").textContent = "Already withdrawn.";
+      document.getElementById("stakedInfo").textContent = `Staked: ${web3.utils.fromWei(stakedAmount)}`;
+      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date(startTime * 1000).toLocaleString()}`;
       return;
     }
 
-    if (claimed) { 
-      alert("You already claimed your stake.");
-      showStatus("Stake already withdrawn.");
-      if (withdrawButton) withdrawButton.disabled = true;
+    if (stakedAmount.isZero()) {
+      showStatus("No active stake found.");
+      document.getElementById("withdrawCountdown").textContent = "Withdrawal available in: --";
+      document.getElementById("stakedInfo").textContent = "Staked: --";
+      document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
       return;
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const duration = await fixedContract.methods.stakingDuration().call(); // in seconds
-    const elapsed = now - stakeStart;
+    const duration = await fixedContract.methods.stakingDuration().call();
+    const unlockTime = startTime + Number(duration);
 
-    if (elapsed < duration) {
-      const remaining = duration - elapsed;
-      const hours = Math.floor(remaining / 3600);
-      const minutes = Math.floor((remaining % 3600) / 60);
-      const seconds = remaining % 60;
-
-      showStatus(`Staking still in progress. Time left: ${hours}h ${minutes}m ${seconds}s`);
-      if (withdrawButton) withdrawButton.disabled = true;
+    if (now >= unlockTime) {
+      showStatus("Stake is available for withdrawal.");
+      document.getElementById("withdrawCountdown").textContent = "Withdrawal available now!";
     } else {
-      showStatus("Staking complete. You can withdraw now.");
-      if (withdrawButton) withdrawButton.disabled = false;
+      const remaining = unlockTime - now;
+      document.getElementById("withdrawCountdown").textContent = `Withdrawal available in: ${formatTime(remaining)}`;
     }
-  } catch (error) {
-    console.error("Error checking withdrawal status:", error);
-    showStatus("Error retrieving stake information.");
+
+    document.getElementById("stakedInfo").textContent = `Staked: ${web3.utils.fromWei(stakedAmount)}`;
+    document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date(startTime * 1000).toLocaleString()}`;
+    
+  } catch (err) {
+    console.error("Error checking withdrawal status:", err);
+    showStatus("Failed to fetch withdrawal status.", true);
   }
 }
 
@@ -1313,31 +1503,21 @@ async function fetchStakeTimestamp() {
     const stake = await fixedContract.methods.stakes(userAccount).call();
     const timestamp = Number(stake.startTime);
     const stakedAmount = web3.utils.toBN(stake.amount);
-    const claimed = stake.claimed; 
-
-    const stakeTimestampInfo = document.getElementById("stakeTimestampInfo");
-    const withdrawCountdown = document.getElementById("withdrawCountdown");
-
-    if (claimed) {
-      stakeTimestampInfo.textContent = "Stake Timestamp: --";
-      withdrawCountdown.textContent = "Stake already withdrawn.";
-      return;
-    }
 
     if (timestamp > 0 && !stakedAmount.isZero()) {
       const now = Math.floor(Date.now() / 1000);
       const remaining = timestamp + stakingDuration - now;
       const daysLeft = Math.ceil(remaining / (60 * 60 * 24));
-      const formatted = new Date(timestamp * 1000).toLocaleString();
 
-      stakeTimestampInfo.textContent = `Stake Timestamp: ${formatted}`;
-      withdrawCountdown.textContent =
+      const formatted = new Date(timestamp * 1000).toLocaleString();
+      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${formatted}`;
+      document.getElementById("withdrawCountdown").textContent =
         remaining > 0
           ? `Withdrawal available in: ${daysLeft} day(s)`
           : "Withdrawal available now!";
     } else {
-      stakeTimestampInfo.textContent = "Stake Timestamp: --";
-      withdrawCountdown.textContent = "Withdrawal available in: --";
+      document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
+      document.getElementById("withdrawCountdown").textContent = "Withdrawal available in: --";
     }
   } catch (error) {
     console.error("Error fetching stake timestamp:", error);
@@ -1447,6 +1627,7 @@ let earlyWithdrawLock = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
