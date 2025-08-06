@@ -1127,6 +1127,8 @@ async function connectWallet() {
 window.connectWallet = connectWallet;
 
 
+const stakingDuration = 18 * 24 * 60 * 60; // 18 days in seconds
+
 async function checkIfWithdrawnOnConnect() {
   try {
     if (typeof fixedContract === 'undefined' || !userAccount) {
@@ -1136,9 +1138,8 @@ async function checkIfWithdrawnOnConnect() {
 
     const stake = await fixedContract.methods.stakes(userAccount).call();
 
-    // Check for zero values (already withdrawn or never staked)
     const stakedAmount = web3.utils.toBN(stake.amount);
-    const withdrawn = web3.utils.toBN(stake.withdrawn || 0); // if your contract tracks it
+    const withdrawn = web3.utils.toBN(stake.withdrawn || 0); // remove this if not in contract
 
     if (stakedAmount.isZero()) {
       console.log("✅ Stake has been withdrawn or never existed.");
@@ -1153,15 +1154,11 @@ async function checkIfWithdrawnOnConnect() {
         showStatus("Stake is active.");
       }
     }
-
   } catch (error) {
-    console.error("❌ Error checking stake status on wallet connect:", error);
-
-    // Handle contract revert (no stake at all)
-    if (error.message.includes("execution reverted")) {
-      showStatus("No stake found (possibly withdrawn or never staked).");
-    }
+    console.error("❌ Error checking stake on connect:", error);
+    showStatus("Failed to check stake status.");
   }
+ }
 }
 
 
@@ -1447,6 +1444,7 @@ let earlyWithdrawLock = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
