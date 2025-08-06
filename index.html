@@ -1313,21 +1313,31 @@ async function fetchStakeTimestamp() {
     const stake = await fixedContract.methods.stakes(userAccount).call();
     const timestamp = Number(stake.startTime);
     const stakedAmount = web3.utils.toBN(stake.amount);
+    const claimed = stake.claimed; 
+
+    const stakeTimestampInfo = document.getElementById("stakeTimestampInfo");
+    const withdrawCountdown = document.getElementById("withdrawCountdown");
+
+    if (claimed) {
+      stakeTimestampInfo.textContent = "Stake Timestamp: --";
+      withdrawCountdown.textContent = "Stake already withdrawn.";
+      return;
+    }
 
     if (timestamp > 0 && !stakedAmount.isZero()) {
       const now = Math.floor(Date.now() / 1000);
       const remaining = timestamp + stakingDuration - now;
       const daysLeft = Math.ceil(remaining / (60 * 60 * 24));
-
       const formatted = new Date(timestamp * 1000).toLocaleString();
-      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${formatted}`;
-      document.getElementById("withdrawCountdown").textContent =
+
+      stakeTimestampInfo.textContent = `Stake Timestamp: ${formatted}`;
+      withdrawCountdown.textContent =
         remaining > 0
           ? `Withdrawal available in: ${daysLeft} day(s)`
           : "Withdrawal available now!";
     } else {
-      document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
-      document.getElementById("withdrawCountdown").textContent = "Withdrawal available in: --";
+      stakeTimestampInfo.textContent = "Stake Timestamp: --";
+      withdrawCountdown.textContent = "Withdrawal available in: --";
     }
   } catch (error) {
     console.error("Error fetching stake timestamp:", error);
@@ -1371,7 +1381,6 @@ async function getStakedAmount() {
     document.getElementById("stakedInfo").textContent = "Staked: Error";
   }
 }
-
 
 
 let withdrawalConfirmed = false;
@@ -1437,3 +1446,4 @@ let earlyWithdrawLock = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
