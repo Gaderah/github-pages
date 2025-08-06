@@ -1246,48 +1246,48 @@ window.stakeTokens = stakeTokens;
 
 async function checkWithdrawalStatus() {
   try {
-    const stakeInfo = await fixedContract.methods.getStakeInfo(userAccount).call();
-    const stakedAmount = web3.utils.toBN(stakeInfo.amount);
-    const startTime = Number(stakeInfo.startTime);
-    const claimed = stakeInfo.claimed;
+    const stakeInfo = await fixedContract.methods.stakes(userAccount).call();
+    const stakedAmount = web3.utils.toBN(stakingInfo.amount);
+    const stakeStart = Number(stakingInfo.startTime);
+    const claimed = stakingInfo.claimed;
 
-    if (claimed) {
-      showStatus("Stake already withdrawn.");
-      document.getElementById("withdrawCountdown").textContent = "Already withdrawn.";
-      document.getElementById("stakedInfo").textContent = `Staked: ${web3.utils.fromWei(stakedAmount)}`;
-      document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date(startTime * 1000).toLocaleString()}`;
+    const withdrawButton = document.querySelector('button[onclick="checkWithdrawalStatus()"]');
+
+    if (stakedAmount.isZero()) {
+      alert("You have no active stake.");
+      showStatus("No active stake found.");
+      if (withdrawButton) withdrawButton.disabled = true;
       return;
     }
 
-    if (stakedAmount.isZero()) {
-      showStatus("No active stake found.");
-      document.getElementById("withdrawCountdown").textContent = "Withdrawal available in: --";
-      document.getElementById("stakedInfo").textContent = "Staked: --";
-      document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
+    if (claimed) { 
+      alert("You already claimed your stake.");
+      showStatus("Stake already withdrawn.");
+      if (withdrawButton) withdrawButton.disabled = true;
       return;
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const duration = await fixedContract.methods.stakingDuration().call();
-    const unlockTime = startTime + Number(duration);
+    const duration = await fixedContract.methods.stakingDuration().call(); // in seconds
+    const elapsed = now - stakeStart;
 
-    if (now >= unlockTime) {
-      showStatus("Stake is available for withdrawal.");
-      document.getElementById("withdrawCountdown").textContent = "Withdrawal available now!";
+    if (elapsed < duration) {
+      const remaining = duration - elapsed;
+      const hours = Math.floor(remaining / 3600);
+      const minutes = Math.floor((remaining % 3600) / 60);
+      const seconds = remaining % 60;
+
+      showStatus(`Staking still in progress. Time left: ${hours}h ${minutes}m ${seconds}s`);
+      if (withdrawButton) withdrawButton.disabled = true;
     } else {
-      const remaining = unlockTime - now;
-      document.getElementById("withdrawCountdown").textContent = `Withdrawal available in: ${formatTime(remaining)}`;
+      showStatus("Staking complete. You can withdraw now.");
+      if (withdrawButton) withdrawButton.disabled = false;
     }
-
-    document.getElementById("stakedInfo").textContent = `Staked: ${web3.utils.fromWei(stakedAmount)}`;
-    document.getElementById("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date(startTime * 1000).toLocaleString()}`;
-    
-  } catch (err) {
-    console.error("Error checking withdrawal status:", err);
-    showStatus("Failed to fetch withdrawal status.", true);
+  } catch (error) {
+    console.error("Error checking withdrawal status:", error);
+    showStatus("Error retrieving stake information.");
   }
 }
-
 
 window.checkWithdrawalStatus = checkWithdrawalStatus;
 
@@ -1436,6 +1436,7 @@ let earlyWithdrawLock = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
