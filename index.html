@@ -1126,41 +1126,46 @@ async function connectWallet() {
 
 window.connectWallet = connectWallet;
 
+	
+async function interpretStakeStatus(stake, now, stakingDuration) {
+  const amount = web3.utils.toBN(stake.amount);
+  const claimed = stake.claimed; // bool from contract, no BN needed
+  const startTime = Number(stake.startTime);
+
+  if (amount.isZero()) {
+    return "No active stake.";
+  }
+  if (claimed) {
+    return "Stake already withdrawn.";
+  }
+  if (now > startTime + stakingDuration) {
+    return "Stake matured but not yet withdrawn.";
+  }
+  return "Stake is active.";
+}
+	
 
 async function checkIfWithdrawnOnConnect() {
   try {
-    if (typeof fixedContract === 'undefined' || !userAccount) {
-      console.error("❌ Contract not initialized or user address missing");
-      return;
-    }
+    const now = Math.floor(Date.now() / 1000);
+    const stake = await fixedContract.methods.stakes(userAddress).call();
+    const stakingDuration = Number(await fixedContract.methods.stakingDuration().call());
+    const amount = web3.utils.toBN(stake.amount);
+    const claimed = stake.claimed;
+    const startTime = Number(stake.startTime);
 
-    const stake = await fixedContract.methods.stakes(userAccount).call();
-
-    // Check for zero values (already withdrawn or never staked)
-    const stakedAmount = web3.utils.toBN(stake.amount);
-    const withdrawn = web3.utils.toBN(stake.withdrawn || 0); // if your contract tracks it
-
-    if (stakedAmount.isZero()) {
-      console.log("✅ Stake has been withdrawn or never existed.");
-      showStatus("Stake has already been withdrawn.");
+    if (amount.isZero()) {
+      showStatus("No active stake.");
+    } else if (claimed) {
+      showStatus("Stake already withdrawn.");
+    } else if (now > startTime + stakingDuration) {
+      showStatus("Stake matured but not yet withdrawn.");
     } else {
-      const startTime = Number(stake.startTime);
-      const now = Math.floor(Date.now() / 1000);
-
-      if (now > startTime + stakingDuration && withdrawn.isZero()) {
-        showStatus("Stake matured but not yet withdrawn.");
-      } else {
-        showStatus("Stake is active.");
-      }
+      showStatus("Stake is active.");
     }
-
   } catch (error) {
-    console.error("❌ Error checking stake status on wallet connect:", error);
-
-    // Handle contract revert (no stake at all)
-    if (error.message.includes("execution reverted")) {
-      showStatus("No stake found (possibly withdrawn or never staked).");
-    }
+    console.error(error);
+    showStatus("Error checking stake status.");
   }
 }
 
@@ -1246,46 +1251,25 @@ window.stakeTokens = stakeTokens;
 
 async function checkWithdrawalStatus() {
   try {
-    const stakeInfo = await fixedContract.methods.stakes(userAccount).call();
-    const stakedAmount = web3.utils.toBN(stakingInfo.amount);
-    const stakeStart = Number(stakingInfo.startTime);
-    const claimed = stakingInfo.claimed;
-
-    const withdrawButton = document.querySelector('button[onclick="checkWithdrawalStatus()"]');
-
-    if (stakedAmount.isZero()) {
-      alert("You have no active stake.");
-      showStatus("No active stake found.");
-      if (withdrawButton) withdrawButton.disabled = true;
-      return;
-    }
-
-    if (claimed) { 
-      alert("You already claimed your stake.");
-      showStatus("Stake already withdrawn.");
-      if (withdrawButton) withdrawButton.disabled = true;
-      return;
-    }
-
     const now = Math.floor(Date.now() / 1000);
-    const duration = await fixedContract.methods.stakingDuration().call(); // in seconds
-    const elapsed = now - stakeStart;
+    const stake = await fixedContract.methods.stakes(userAddress).call();
+    const stakingDuration = Number(await fixedContract.methods.stakingDuration().call());
+    const amount = web3.utils.toBN(stake.amount);
+    const claimed = stake.claimed;
+    const startTime = Number(stake.startTime);
 
-    if (elapsed < duration) {
-      const remaining = duration - elapsed;
-      const hours = Math.floor(remaining / 3600);
-      const minutes = Math.floor((remaining % 3600) / 60);
-      const seconds = remaining % 60;
-
-      showStatus(`Staking still in progress. Time left: ${hours}h ${minutes}m ${seconds}s`);
-      if (withdrawButton) withdrawButton.disabled = true;
+    if (amount.isZero()) {
+      showStatus("No active stake.");
+    } else if (claimed) {
+      showStatus("Stake already withdrawn.");
+    } else if (now > startTime + stakingDuration) {
+      showStatus("Stake matured but not yet withdrawn.");
     } else {
-      showStatus("Staking complete. You can withdraw now.");
-      if (withdrawButton) withdrawButton.disabled = false;
+      showStatus("Stake is active.");
     }
   } catch (error) {
-    console.error("Error checking withdrawal status:", error);
-    showStatus("Error retrieving stake information.");
+    console.error(error);
+    showStatus("Error checking withdrawal status.");
   }
 }
 
@@ -1446,4 +1430,5 @@ let earlyWithdrawLock = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
