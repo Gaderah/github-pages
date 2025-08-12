@@ -1126,48 +1126,43 @@ async function connectWallet() {
 
 window.connectWallet = connectWallet;
 
-	
-async function interpretStakeStatus(stake, now, stakingDuration) {
-  const amount = web3.utils.toBN(stake.amount);
-  const claimed = stake.claimed; // bool from contract, no BN needed
-  const startTime = Number(stake.startTime);
 
-  if (amount.isZero()) {
-    return "No active stake.";
-  }
-  if (claimed) {
-    return "Stake already withdrawn.";
-  }
-  if (now > startTime + stakingDuration) {
-    return "Stake matured but not yet withdrawn.";
-  }
-  return "Stake is active.";
-}
-	
 
 async function checkIfWithdrawnOnConnect() {
-  try {
-    const now = Math.floor(Date.now() / 1000);
-    const stake = await fixedContract.methods.stakes(userAddress).call();
-    const stakingDuration = Number(await fixedContract.methods.stakingDuration().call());
-    const amount = web3.utils.toBN(stake.amount);
-    const claimed = stake.claimed;
-    const startTime = Number(stake.startTime);
+    try {
+        const stakingInfo = await fixedContract.methods.stakes(userAccount).call();
+        const stakedAmount = web3.utils.toBN(stakingInfo.amount);
+        const claimed = stakingInfo.claimed;
+        const startTime = Number(stakingInfo.startTime);
+        const stakingDuration = Number(stakingInfo.duration);
 
-    if (amount.isZero()) {
-      showStatus("No active stake.");
-    } else if (claimed) {
-      showStatus("Stake already withdrawn.");
-    } else if (now > startTime + stakingDuration) {
-      showStatus("Stake matured but not yet withdrawn.");
-    } else {
-      showStatus("Stake is active.");
+        if (stakedAmount.isZero()) {
+            showStatus("No active stake found.");
+            return;
+        }
+
+        const now = Math.floor(Date.now() / 1000);
+
+        // ✅ New withdrawn detection
+        if (claimed) {
+            const withdrawnDate = new Date((startTime + stakingDuration) * 1000).toLocaleString();
+            showStatus(`Stake already withdrawn on ${withdrawnDate}`);
+            return;
+        }
+
+        if (now > startTime + stakingDuration) {
+            const maturityDate = new Date((startTime + stakingDuration) * 1000).toLocaleString();
+            showStatus(`Stake matured on ${maturityDate} but not yet withdrawn.`);
+        } else {
+            const activeUntil = new Date((startTime + stakingDuration) * 1000).toLocaleString();
+            showStatus(`Stake is active until ${activeUntil}.`);
+        }
+    } catch (error) {
+        console.error("Error checking stake status:", error);
+        showStatus("Error fetching stake status.");
     }
-  } catch (error) {
-    console.error(error);
-    showStatus("Error checking stake status.");
-  }
 }
+
 
 
 async function buyBLG() {
@@ -1249,28 +1244,46 @@ async function stakeTokens() {
 window.stakeTokens = stakeTokens;
 
 
+
 async function checkWithdrawalStatus() {
   try {
-    const now = Math.floor(Date.now() / 1000);
-    const stake = await fixedContract.methods.stakes(userAddress).call();
-    const stakingDuration = Number(await fixedContract.methods.stakingDuration().call());
-    const amount = web3.utils.toBN(stake.amount);
-    const claimed = stake.claimed;
-    const startTime = Number(stake.startTime);
+    const stakingInfo = await fixedContract.methods.stakes(userAccount).call();
+    const stakedAmount = web3.utils.toBN(stakingInfo.amount);
+    const claimed = stakingInfo.claimed;
+    const startTime = Number(stakingInfo.startTime) * 1000; // ms
+    const withdrawn = web3.utils.toBN(stakingInfo.withdrawn);
+    const stakingDuration = Number(stakingInfo.duration) * 1000; // ms
+    const now = Date.now();
 
-    if (amount.isZero()) {
-      showStatus("No active stake.");
-    } else if (claimed) {
-      showStatus("Stake already withdrawn.");
-    } else if (now > startTime + stakingDuration) {
-      showStatus("Stake matured but not yet withdrawn.");
-    } else {
-      showStatus("Stake is active.");
+     if (stakedAmount.isZero()) {
+            alert("You have no active stake.");
+            showStatus("No active stake found.");
+            return;
+        }
+
+    const now = Math.floor(Date.now() / 1000);
+
+        // ✅ Same withdrawn detection fix
+        if (claimed) {
+            const withdrawnDate = new Date((startTime + stakingDuration) * 1000).toLocaleString();
+            alert(`Stake already withdrawn on ${withdrawnDate}`);
+            showStatus(`Stake already withdrawn on ${withdrawnDate}`);
+            return;
+        }
+
+        if (now > startTime + stakingDuration) {
+            const maturityDate = new Date((startTime + stakingDuration) * 1000).toLocaleString();
+            alert(`Your stake matured on ${maturityDate}. You can withdraw now.`);
+            showStatus(`Stake matured on ${maturityDate} but not yet withdrawn.`);
+        } else {
+            const activeUntil = new Date((startTime + stakingDuration) * 1000).toLocaleString();
+            alert(`Your stake is active until ${activeUntil}.`);
+            showStatus(`Stake is active until ${activeUntil}.`);
+        }
+    } catch (error) {
+        console.error("Error checking withdrawal status:", error);
+        showStatus("Error fetching stake status.");
     }
-  } catch (error) {
-    console.error(error);
-    showStatus("Error checking withdrawal status.");
-  }
 }
 
 
@@ -1367,6 +1380,7 @@ async function getStakedAmount() {
 }
 
 
+
 let withdrawalConfirmed = false;
 let earlyWithdrawLock = {}; // simple in-memory lock tracking
 
@@ -1375,7 +1389,7 @@ let earlyWithdrawLock = {}; // simple in-memory lock tracking
 </body>
 </html>
 
-	    
+		
     <!-- end about -->
     <!-- works -->
     <div class="works">
@@ -1430,5 +1444,6 @@ let earlyWithdrawLock = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
