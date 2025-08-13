@@ -1132,34 +1132,25 @@ async function checkIfWithdrawnOnConnect() {
     try {
         const stakingInfo = await fixedContract.methods.stakes(userAccount).call();
         const stakedAmount = web3.utils.toBN(stakingInfo.amount);
-        const claimed = stakingInfo.claimed;
-        const startTime = Number(stakingInfo.startTime);
-        const stakingDuration = Number(stakingInfo.duration);
 
         if (stakedAmount.isZero()) {
             showStatus("No active stake found.");
             return;
         }
 
-        const now = Math.floor(Date.now() / 1000);
+        let nowConnect = Math.floor(Date.now() / 1000); // renamed to avoid conflicts
+        const stakeStart = Number(stakingInfo.startTime);
+        const stakeDuration = Number(stakingInfo.duration);
+        const endTime = stakeStart + stakeDuration;
 
-        // ✅ New withdrawn detection
-        if (claimed) {
-            const withdrawnDate = new Date((startTime + stakingDuration) * 1000).toLocaleString();
-            showStatus(`Stake already withdrawn on ${withdrawnDate}`);
-            return;
-        }
-
-        if (now > startTime + stakingDuration) {
-            const maturityDate = new Date((startTime + stakingDuration) * 1000).toLocaleString();
-            showStatus(`Stake matured on ${maturityDate} but not yet withdrawn.`);
+        if (nowConnect >= endTime) {
+            showStatus("Stake ready for withdrawal.");
         } else {
-            const activeUntil = new Date((startTime + stakingDuration) * 1000).toLocaleString();
-            showStatus(`Stake is active until ${activeUntil}.`);
+            let timeLeft = endTime - nowConnect;
+            showStatus(`Time left until withdrawal: ${timeLeft} seconds.`);
         }
     } catch (error) {
-        console.error("Error checking stake status:", error);
-        showStatus("Error fetching stake status.");
+        console.error("Error checking withdrawal on connect:", error);
     }
 }
 
@@ -1246,43 +1237,29 @@ window.stakeTokens = stakeTokens;
 
 
 async function checkWithdrawalStatus() {
-  try {
-    const stakingInfo = await fixedContract.methods.stakes(userAccount).call();
-    const stakedAmount = web3.utils.toBN(stakingInfo.amount);
-    const claimed = stakingInfo.claimed;
-    const startTime = Number(stakingInfo.startTime) * 1000; // ms
-    const withdrawn = web3.utils.toBN(stakingInfo.withdrawn);
-    const stakingDuration = Number(stakingInfo.duration) * 1000; // ms
-    const now = Date.now();
+    try {
+        const stakingInfo = await fixedContract.methods.stakes(userAccount).call();
+        const stakedAmount = web3.utils.toBN(stakingInfo.amount);
 
-     if (stakedAmount.isZero()) {
+        if (stakedAmount.isZero()) {
             alert("You have no active stake.");
             showStatus("No active stake found.");
             return;
         }
 
-    const now = Math.floor(Date.now() / 1000);
+        let nowCheck = Math.floor(Date.now() / 1000); // renamed to avoid conflicts
+        const stakeStart = Number(stakingInfo.startTime);
+        const stakeDuration = Number(stakingInfo.duration);
+        const endTime = stakeStart + stakeDuration;
 
-        // ✅ Same withdrawn detection fix
-        if (claimed) {
-            const withdrawnDate = new Date((startTime + stakingDuration) * 1000).toLocaleString();
-            alert(`Stake already withdrawn on ${withdrawnDate}`);
-            showStatus(`Stake already withdrawn on ${withdrawnDate}`);
-            return;
-        }
-
-        if (now > startTime + stakingDuration) {
-            const maturityDate = new Date((startTime + stakingDuration) * 1000).toLocaleString();
-            alert(`Your stake matured on ${maturityDate}. You can withdraw now.`);
-            showStatus(`Stake matured on ${maturityDate} but not yet withdrawn.`);
+        if (nowCheck >= endTime) {
+            showStatus("Stake ready for withdrawal.");
         } else {
-            const activeUntil = new Date((startTime + stakingDuration) * 1000).toLocaleString();
-            alert(`Your stake is active until ${activeUntil}.`);
-            showStatus(`Stake is active until ${activeUntil}.`);
+            let timeLeft = endTime - nowCheck;
+            showStatus(`Time left until withdrawal: ${timeLeft} seconds.`);
         }
     } catch (error) {
         console.error("Error checking withdrawal status:", error);
-        showStatus("Error fetching stake status.");
     }
 }
 
@@ -1444,6 +1421,7 @@ let earlyWithdrawLock = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
