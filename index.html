@@ -156,1326 +156,672 @@
     <!-- about -->
 
 
-<!DOCTYPE html>
+```html
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <title>BluGo Token Sale & Staking</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BluGoFixedSaleStaking — Polygon UI</title>
   <script src="https://cdn.jsdelivr.net/npm/web3@1.7.5/dist/web3.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-900 text-white font-sans">
-  <div class="container mx-auto p-4">
-    <h1 class="text-3xl font-bold mb-6">BluGo Token Sale & Staking</h1>
 
-    <div class="mb-4">
-      <button onclick="connectWallet()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Connect Wallet</button>
-      <span id="walletAddress" class="ml-4"></span>
-    </div>
-
-    <div class="grid md:grid-cols-2 gap-4">
-      <div class="bg-gray-800 p-4 rounded">
-        <h2 class="text-xl font-bold mb-2">Buy BLG</h2>
-        <input type="number" id="buyAmount" placeholder="Amount of BLG" class="w-full p-2 text-black rounded mb-2">
-        <button onclick="buyBLG()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full">Buy</button>
+<body class="bg-gray-900 text-white min-h-screen">
+  <div class="max-w-5xl mx-auto p-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">BluGo Fixed Sale & Staking</h1>
+        <p class="text-sm text-gray-300">Contract UI for Polygon • Buy BLG (fixed price) • Stake • Withdraw after staking duration</p>
       </div>
 
+      <div class="flex items-center gap-3">
+        <button id="connectBtn" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-semibold">
+          Connect Wallet
+        </button>
+        <div class="text-sm">
+          <div id="netBadge" class="text-gray-300"></div>
+          <div id="accountBadge" class="text-gray-300"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="topStatus" class="mb-4 text-sm"></div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <!-- BUY -->
       <div class="bg-gray-800 p-4 rounded">
-        <h2 class="text-xl font-bold mb-2">Stake BLG</h2>
-        <input type="number" id="stakeAmount" placeholder="Amount to Stake" class="w-full p-2 text-black rounded mb-2">
-        <button onclick="stakeTokens()" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded w-full">Stake</button>
-<p id="stakedInfo" class="mt-2 text-sm text-green-400">Staked: --</p>
-<p id="stakeTimestampInfo" class="mt-1 text-sm text-blue-300">Stake Timestamp: --</p>
-<p id="withdrawCountdown" class="mt-1 text-sm text-yellow-300">Withdrawal available in: --</p>
-     </div>
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-semibold">Buy BLG</h2>
+          <span class="text-xs px-2 py-1 rounded bg-gray-700 text-gray-200" id="priceBadge">Price: --</span>
+        </div>
+
+        <label class="text-xs text-gray-300">BLG amount (whole tokens)</label>
+        <input id="buyAmount" type="number" min="1" step="1"
+               class="w-full p-2 rounded text-black mb-2" placeholder="e.g. 100" />
+
+        <div class="flex items-center gap-2">
+          <button id="buyBtn" class="bg-green-600 hover:bg-green-700 px-3 py-2 rounded w-full font-semibold">
+            Approve USDT & Buy
+          </button>
+        </div>
+
+        <p id="buyHint" class="text-xs text-gray-300 mt-2"></p>
+      </div>
+
+      <!-- STAKE -->
+      <div class="bg-gray-800 p-4 rounded">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-semibold">Stake BLG</h2>
+          <span class="text-xs px-2 py-1 rounded bg-gray-700 text-gray-200" id="rewardBadge">Reward: --</span>
+        </div>
+
+        <label class="text-xs text-gray-300">Amount to stake (BLG)</label>
+        <input id="stakeAmount" type="number" min="0.000000000000000001" step="0.000000000000000001"
+               class="w-full p-2 rounded text-black mb-2" placeholder="e.g. 10" />
+
+        <button id="stakeBtn" class="bg-yellow-600 hover:bg-yellow-700 px-3 py-2 rounded w-full font-semibold">
+          Approve BLG & Stake
+        </button>
+
+        <p id="stakeHint" class="text-xs text-gray-300 mt-2"></p>
+      </div>
+
+      <!-- MY STAKE -->
+      <div class="bg-gray-800 p-4 rounded">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-semibold">My Stake</h2>
+          <span class="text-xs text-gray-300" id="durationLabel">Duration: --</span>
+        </div>
+
+        <div class="space-y-1 text-sm">
+          <div id="myStakeAmount">Staked: --</div>
+          <div id="myStakeStart">Start time: --</div>
+          <div id="myWithdrawable">Withdraw status: --</div>
+          <div id="myCountdown" class="text-gray-300">Time remaining: --</div>
+          <div id="myRewardEstimate" class="text-gray-300">Reward estimate: --</div>
+        </div>
+
+        <div class="mt-3">
+          <div class="relative">
+            <button id="withdrawBtn"
+                    class="bg-red-600 hover:bg-red-700 px-3 py-2 rounded w-full font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled
+                    title="">
+              Withdraw Stake
+            </button>
+          </div>
+
+          <p class="text-xs text-gray-300 mt-2">
+            <span class="font-semibold">Tip:</span>
+            The Withdraw button stays disabled until your staking duration is complete. When it becomes available, you’ll be asked to confirm before sending the transaction.
+          </p>
+        </div>
+
+        <p id="withdrawHint" class="text-xs text-gray-300 mt-2"></p>
+      </div>
+
+      <!-- CONTRACT INFO -->
+      <div class="bg-gray-800 p-4 rounded">
+        <h2 class="font-semibold mb-2">Contract Info</h2>
+
+        <div class="space-y-1 text-sm">
+          <div id="contractAddr">Contract: --</div>
+          <div id="ownerAddr">Owner: --</div>
+          <div id="usdtAddr">USDT: --</div>
+          <div id="blgAddr">BLG: --</div>
+          <div id="priceInfo">BLG_PRICE: -- (USDT base units; USDT has 6 decimals)</div>
+          <div id="rewardInfo">stakingRewardPercent: --</div>
+          <div id="durationInfo">stakingDuration: --</div>
+          <div id="balancesInfo" class="pt-2">Contract balances (BLG / USDT): --</div>
+        </div>
+      </div>
     </div>
 
-    <div class="mt-4">
-      <button onclick="onWithdrawClick()" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Withdraw Stake</button>
-   </div>
-
-
-    <div id="earlyWithdrawModal" style="display:none; position:fixed; top:30%; left:30%; background:white; padding:20px; border:1px solid black;  z-index:1000;">
-  <p>Warning: Withdrawing early will lock your stake for an additional 18 days from now. Are you sure you want to continue?</p>
-  <button id="confirmEarlyWithdraw">Confirm</button>
-  <button id="cancelEarlyWithdraw">Cancel</button>
-    </div>
-
-
-    <div id="status" class="mt-4 text-sm text-gray-300"></div>
+    <div id="status" class="mt-6 text-sm"></div>
   </div>
 
 <script>
-let web3;
-let userAccount;
-const FIXED_CONTRACT_ADDRESS = "0xB7c9b8a715b5feD7195A00deE19088208aEc7229";
-const BLG_TOKEN_ADDRESS = "0xd498b276EE8Fb629e1B4103491585AD8f1a4bD53";
-const USDT_TOKEN_ADDRESS = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
-const ownerAddress = "0x886B317b6AB2a5a6Df46C27f445DE858a22f678B";
+/* ============================================================
+   CONFIG — EXACT ADDRESSES YOU PROVIDED
+============================================================ */
+const FIXED_CONTRACT_ADDRESS = "0x1A79B993440687B64bCc74Bd3f2e079651B68Cd4";
+const BLG_TOKEN_ADDRESS      = "0xd498b276EE8Fb629e1B4103491585AD8f1a4bD53"; // 18 decimals
+const USDT_TOKEN_ADDRESS     = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"; // 6 decimals
 
-let fixedContract, blgToken, usdtToken;
-let hasAcknowledgedPenalty = false;
-let countdownTimer = null; // for the live countdown interval
-
-const earlyModal = document.getElementById('earlyWithdrawModal');
-const confirmEarlyBtn = document.getElementById('confirmEarlyWithdraw');
-const cancelEarlyBtn  = document.getElementById('cancelEarlyWithdraw');
-
-
-
-const FIXED_CONTRACT_ABI = [
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "blgAmount",
-				"type": "uint256"
-			}
-		],
-		"name": "buyBLG",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "clearExpiredLock",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			}
-		],
-		"name": "lockUserForEarlyWithdraw",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "duration",
-				"type": "uint256"
-			}
-		],
-		"name": "setStakingDuration",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "rewardPercent",
-				"type": "uint256"
-			}
-		],
-		"name": "setStakingReward",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "stake",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_usdt",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "_blg",
-				"type": "address"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "Staked",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "newDuration",
-				"type": "uint256"
-			}
-		],
-		"name": "StakingDurationChanged",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "newRewardPercent",
-				"type": "uint256"
-			}
-		],
-		"name": "StakingRewardChanged",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "buyer",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "blgAmount",
-				"type": "uint256"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "usdtAmount",
-				"type": "uint256"
-			}
-		],
-		"name": "TokensPurchased",
-		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "withdrawBLG",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "reward",
-				"type": "uint256"
-			}
-		],
-		"name": "Withdrawn",
-		"type": "event"
-	},
-	{
-		"inputs": [],
-		"name": "withdrawStake",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "withdrawUSDT",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"stateMutability": "payable",
-		"type": "receive"
-	},
-	{
-		"inputs": [],
-		"name": "blg",
-		"outputs": [
-			{
-				"internalType": "contract IERC20",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "BLG_PRICE",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			}
-		],
-		"name": "canWithdraw",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"name": "earlyWithdrawLock",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			}
-		],
-		"name": "getStakeInfo",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "startTime",
-				"type": "uint256"
-			},
-			{
-				"internalType": "bool",
-				"name": "claimed",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"name": "lockEnd",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "owner",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"name": "stakes",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "startTime",
-				"type": "uint256"
-			},
-			{
-				"internalType": "bool",
-				"name": "claimed",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"name": "stakeTimestamp",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "stakingDuration",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "stakingRewardPercent",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "usdt",
-		"outputs": [
-			{
-				"internalType": "contract IERC20",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
-];
-
-
-const APPROVE_ABI = [
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_creatorWallet",
-				"type": "address"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "owner",
-				"type": "address"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "spender",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "value",
-				"type": "uint256"
-			}
-		],
-		"name": "Approval",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "previousOwner",
-				"type": "address"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "newOwner",
-				"type": "address"
-			}
-		],
-		"name": "OwnershipTransferred",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "newFee",
-				"type": "uint256"
-			}
-		],
-		"name": "TransactionFeeUpdated",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "from",
-				"type": "address"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "to",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "value",
-				"type": "uint256"
-			}
-		],
-		"name": "Transfer",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "newFee",
-				"type": "uint256"
-			}
-		],
-		"name": "WithdrawalFeeUpdated",
-		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "owner_",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "spender",
-				"type": "address"
-			}
-		],
-		"name": "allowance",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "spender",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "approve",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "account",
-				"type": "address"
-			}
-		],
-		"name": "balanceOf",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "creatorWallet",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "decimals",
-		"outputs": [
-			{
-				"internalType": "uint8",
-				"name": "",
-				"type": "uint8"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address[]",
-				"name": "recipients",
-				"type": "address[]"
-			},
-			{
-				"internalType": "uint256[]",
-				"name": "amounts",
-				"type": "uint256[]"
-			}
-		],
-		"name": "distributeTokens",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "name",
-		"outputs": [
-			{
-				"internalType": "string",
-				"name": "",
-				"type": "string"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "owner",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "_fee",
-				"type": "uint256"
-			}
-		],
-		"name": "setTransactionFee",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "_fee",
-				"type": "uint256"
-			}
-		],
-		"name": "setWithdrawalFee",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "symbol",
-		"outputs": [
-			{
-				"internalType": "string",
-				"name": "",
-				"type": "string"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "totalSupply",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "transactionFee",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "recipient",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "transfer",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "sender",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "recipient",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "transferFrom",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "newOwner",
-				"type": "address"
-			}
-		],
-		"name": "transferOwnership",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "recipient",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "withdraw",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "withdrawalFee",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
-];
-
-
-
-window.addEventListener('load', async () => {
-  if (window.ethereum) {
-    web3 = new Web3(window.ethereum);
-    try {
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-      if (accounts.length > 0) {
-        userAccount = accounts[0];
-        document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
-        await initContracts();
-        await updateStakedInfo();
-        await fetchStakeTimestamp();
-        await checkIfWithdrawnOnConnect();
-      }
-    } catch (err) {
-      console.error("Error getting accounts:", err);
-    }
-
-    window.ethereum.on('accountsChanged', async (accounts) => {
-      if (accounts.length > 0) {
-        userAccount = accounts[0];
-        document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
-        showStatus("Wallet changed.");
-        await initContracts();
-        await updateStakedInfo();
-        await fetchStakeTimestamp();
-      }
-    });
-  } else {
-    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
-  }
-});
-
-
-function initContracts() {
-  fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
-  blgToken = new web3.eth.Contract(APPROVE_ABI, BLG_TOKEN_ADDRESS);
-  usdtToken = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
-}
-
-
-async function connectWallet() {
-  if (typeof window.ethereum === "undefined") {
-    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
-    return;
-  }
-
-  try {
-    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-    userAccount = accounts[0];
-    console.log("Connected wallet:", userAccount);
-    if (!accounts || !accounts.length) {
-      showStatus("No account found or connection rejected.", true);
-      return;
-   }
-    document.getElementById("walletAddress").textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
-    showStatus("Wallet connected.");
-    initContracts();
-    await updateStakedInfo();
-    await fetchStakeTimestamp();
-  } catch (err) {
-    console.error("Wallet connection error:", err);
-    showStatus(`Wallet connection failed: ${err.message}`, true);
-  }
-}
-
-window.connectWallet = connectWallet;
-
-
-
-async function checkIfWithdrawnOnConnect() {
-  try {
-    const stakingInfo = await fixedContract.methods.stakes(userAccount).call();
-    const stakedAmount = web3.utils.toBN(stakingInfo.amount);
-
-    if (stakedAmount.isZero()) {
-      showStatus("No active stake found.");
-      return;
-    }
-
-    const now = Math.floor(Date.now() / 1000);
-    const stakeStart = Number(stakingInfo.startTime);
-    const stakeDuration = Number(await fixedContract.methods.stakingDuration().call());
-    const endTime = stakeStart + stakeDuration;
-
-    if (now >= endTime) {
-      showStatus("Stake ready for withdrawal.");
-    } else {
-      const timeLeft = endTime - now;
-      showStatus(`Time left until withdrawal: ${timeLeft} seconds.`);
-    }
-  } catch (error) {
-    console.error("Error checking withdrawal on connect:", error);
-  }
-}
-
-
-
-async function buyBLG() {
-  const amount = parseFloat(document.getElementById("buyAmount").value);
-  if (isNaN(amount) || amount <= 0) {
-    showStatus("Invalid amount entered.", true);
-    return;
-  }
-
-  const blgAmount = Math.floor(amount); // Convert float to whole number of BLG tokens
-  const usdtAmount = blgAmount * 2 * 1e6; // 2 USDT per BLG (6 decimals for USDT)
-
-  try {
-    await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, usdtAmount.toString()).send({ from: userAccount });
-    const gasEstimate = await fixedContract.methods.buyBLG(blgAmount).estimateGas({ from: userAccount });
-    await fixedContract.methods.buyBLG(blgAmount).send({ from: userAccount, gas: gasEstimate + 5000 });
-    showStatus("BLG purchase successful.");
-  } catch (error) {
-    console.error(error);
-    showStatus("Purchase failed: " + (error.message || "Internal error"), true);
-  }
-}
-
-window.buyBLG = buyBLG;
-
-
-async function stakeTokens() {
-  const amount = parseFloat(document.getElementById("stakeAmount").value);
-  if (isNaN(amount) || amount <= 0) {
-    showStatus("Enter a valid BLG amount to stake.", true);
-    return;
-  }
-
-  const stakeAmount = web3.utils.toWei(amount.toString(), 'ether');
-
-  try {
-    // Fetch balance
-    const balance = await blgToken.methods.balanceOf(userAccount).call();
-    console.log("User BLG balance:", web3.utils.fromWei(balance));
-
-    if (web3.utils.toBN(balance).lt(web3.utils.toBN(stakeAmount))) {
-      showStatus("Insufficient BLG balance.", true);
-      return;
-    }
-
-    // Check current allowance
-    const allowance = await blgToken.methods.allowance(userAccount, FIXED_CONTRACT_ADDRESS).call();
-    console.log("BLG allowance:", web3.utils.fromWei(allowance));
-
-    if (web3.utils.toBN(allowance).lt(web3.utils.toBN(stakeAmount))) {
-      console.log("Approving BLG for staking...");
-      await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmount).send({ from: userAccount });
-    }
-
-    // Call stake
-    console.log("Calling stake() with:", stakeAmount);
-    const gasEstimate = await fixedContract.methods.stake(stakeAmount).estimateGas({ from: userAccount });
-    await fixedContract.methods.stake(stakeAmount).send({
-    from: userAccount,
-    gas: gasEstimate + 5000  // Add slight buffer
-});
-
-    // Use in-memory storage instead of localStorage
-    earlyWithdrawLock[userAccount] = Date.now();
-    showStatus("Staking successful.");
-
-    // Add small delay to ensure blockchain state is updated
-    setTimeout(async () => {
-    await updateStakedInfo();
-    await fetchStakeTimestamp();
-    }, 2000);
-  } catch (error) {
-    console.error("Stake failed:", error);
-    showStatus("Staking failed: " + (error?.message || "Check balance, approval, or stake conditions."), true);
-  }
-}
-
-
-window.stakeTokens = stakeTokens;
-
-
-
-async function checkIfWithdrawnOnConnect() {
-  try {
-    const stakingInfo = await fixedContract.methods.stakes(userAccount).call();
-    const stakedAmount = web3.utils.toBN(stakingInfo.amount);
-
-    if (stakedAmount.isZero()) {
-      showStatus("No active stake found.");
-      return;
-    }
-
-    const now = Math.floor(Date.now() / 1000);
-    const stakeStart = Number(stakingInfo.startTime);
-    const stakeDuration = Number(await fixedContract.methods.stakingDuration().call());
-    const endTime = stakeStart + stakeDuration;
-
-    if (now >= endTime) {
-      showStatus("Stake ready for withdrawal.");
-    } else {
-      const timeLeft = endTime - now;
-      showStatus(`Time left until withdrawal: ${timeLeft} seconds.`);
-    }
-  } catch (error) {
-    console.error("Error checking withdrawal on connect:", error);
-  }
-}
-
-
-function openEarlyModal()  { earlyModal.style.display = 'block'; }
-function closeEarlyModal() { earlyModal.style.display = 'none'; }
-
-// Main click flow for the Withdraw button
-async function onWithdrawClick() {
-  if (!userAccount) {
-    alert("Please connect your wallet first.");
-    return;
-  }
-
-  try {
-    // Read on-chain stake info and duration from the contract
-    const stake = await fixedContract.methods.stakes(userAccount).call();
-    const stakedAmount = web3.utils.toBN(stake.amount);
-    if (stakedAmount.isZero()) {
-      showStatus("No active stake found.");
-      return;
-    }
-
-    const startTime = Number(stake.startTime);
-    const duration  = Number(await fixedContract.methods.stakingDuration().call());
-    const now       = Math.floor(Date.now() / 1000);
-
-    // If early → show warning modal (must confirm to proceed)
-    if (now < startTime + duration) {
-      openEarlyModal();
-      return;
-    }
-
-    // Not early → withdraw immediately
-    await proceedWithWithdrawal();
-  } catch (err) {
-    console.error("Withdraw flow error:", err);
-    showStatus("Unable to prepare withdrawal.", true);
-  }
-}
-
-// Modal button actions
-confirmEarlyBtn.onclick = async () => {
-  closeEarlyModal();
-  try {
-    // User confirmed they accept the 18-day lock. Call withdraw.
-    await proceedWithWithdrawal();
-  } catch (e) {
-    console.error(e);
-  }
+// Polygon mainnet (chainId 137)
+const POLYGON_CHAIN_ID_HEX = "0x89";
+const POLYGON_PARAMS = {
+  chainId: POLYGON_CHAIN_ID_HEX,
+  chainName: "Polygon Mainnet",
+  nativeCurrency: { name: "POL", symbol: "POL", decimals: 18 },
+  rpcUrls: ["https://polygon-rpc.com/"],
+  blockExplorerUrls: ["https://polygonscan.com/"]
 };
 
-cancelEarlyBtn.onclick = () => closeEarlyModal();
+/* ============================================================
+   ABI — MATCHES YOUR CONTRACT FUNCTIONS USED BY THIS UI
+============================================================ */
+const FIXED_ABI = [
+  {"inputs":[{"internalType":"address","name":"_usdt","type":"address"},{"internalType":"address","name":"_blg","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
+  {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"usdt","outputs":[{"internalType":"contract IERC20","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"blg","outputs":[{"internalType":"contract IERC20","name":"","type":"address"}],"stateMutability":"view","type":"function"},
 
+  {"inputs":[],"name":"BLG_PRICE","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"stakingRewardPercent","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"stakingDuration","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
 
+  {"inputs":[{"internalType":"uint256","name":"blgAmount","type":"uint256"}],"name":"buyBLG","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"stake","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"name":"withdrawStake","outputs":[],"stateMutability":"nonpayable","type":"function"},
 
-async function proceedWithWithdrawal() {
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"canWithdraw","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+
+  {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getStakeInfo","outputs":[
+    {"internalType":"uint256","name":"amount","type":"uint256"},
+    {"internalType":"uint256","name":"startTime","type":"uint256"},
+    {"internalType":"bool","name":"claimed","type":"bool"},
+    {"internalType":"bool","name":"isLocked","type":"bool"},
+    {"internalType":"uint256","name":"lockEndTime","type":"uint256"},
+    {"internalType":"bool","name":"withdrawn","type":"bool"},
+    {"internalType":"bool","name":"withdrawable","type":"bool"},
+    {"internalType":"uint256","name":"reward","type":"uint256"}
+  ],"stateMutability":"view","type":"function"},
+
+  // Note: contract has clearExpiredLock(), but you requested to remove early-withdraw/lock UX.
+  // We intentionally do not expose that action in the UI.
+];
+
+const ERC20_ABI = [
+  {"constant":true,"inputs":[{"name":"account","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"},
+  {"constant":true,"inputs":[{"name":"owner","type":"address"},{"name":"spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"type":"function"},
+  {"constant":false,"inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"type":"function"},
+];
+
+/* ============================================================
+   STATE
+============================================================ */
+let web3;
+let account = null;
+let fixedContract, blgToken, usdtToken;
+let countdownTimer = null;
+let lastDurationSec = 0;
+let lastStakeStart = 0;
+
+/* ============================================================
+   DOM HELPERS
+============================================================ */
+const $ = (id) => document.getElementById(id);
+
+function setTopStatus(msg, isError=false) {
+  const el = $("topStatus");
+  el.className = isError ? "mb-4 text-sm text-red-400" : "mb-4 text-sm text-green-400";
+  el.innerHTML = msg || "";
+}
+
+function setStatus(msg, isError=false) {
+  const el = $("status");
+  el.className = isError ? "mt-6 text-sm text-red-400" : "mt-6 text-sm text-green-400";
+  el.innerHTML = msg || "";
+}
+
+function shortAddr(a) {
+  if (!a) return "--";
+  return a.slice(0,6) + "..." + a.slice(-4);
+}
+
+function formatUSDTBaseToHuman(baseUnitsStr) {
+  // baseUnitsStr is integer string with 6 decimals
+  const bn = web3.utils.toBN(baseUnitsStr);
+  const whole = bn.div(web3.utils.toBN("1000000")).toString();
+  const frac = bn.mod(web3.utils.toBN("1000000")).toString().padStart(6, "0");
+  // trim trailing zeros
+  const fracTrim = frac.replace(/0+$/,'');
+  return fracTrim ? `${whole}.${fracTrim}` : whole;
+}
+
+function formatBLGWeiToHuman(weiStr) {
+  return web3.utils.fromWei(weiStr.toString(), "ether");
+}
+
+function ensureIntString(n) {
+  // for buyBLG: whole tokens only
+  const x = Number(n);
+  if (!Number.isFinite(x) || x <= 0) return null;
+  const i = Math.floor(x);
+  if (i <= 0) return null;
+  return String(i);
+}
+
+/* ============================================================
+   POLYGON NETWORK SWITCH (AUTO)
+============================================================ */
+async function ensurePolygonNetwork() {
+  if (!window.ethereum) return false;
+
+  const chainId = await window.ethereum.request({ method: "eth_chainId" });
+  if (chainId === POLYGON_CHAIN_ID_HEX) return true;
+
+  // Friendly prompt flow
+  setTopStatus(
+    `This app works on <span class="font-semibold">Polygon</span>. We can switch your wallet network now.`,
+    false
+  );
+
   try {
-    // Send tx to withdraw. Contract should either:
-    // - Complete withdrawal (normal case), OR
-    // - If early, set a lock and return (NOT revert), with no token transfer.
-    await fixedContract.methods.withdrawStake().send({ from: userAccount });
-
-    // Re-read state to determine what happened
-    const stake = await fixedContract.methods.stakes(userAccount).call();
-    const locked = await fixedContract.methods.earlyWithdrawLock(userAccount).call();
-    const lockEndTs = Number(await fixedContract.methods.lockEnd(userAccount).call());
-
-    if (locked && lockEndTs > Math.floor(Date.now() / 1000)) {
-      const until = new Date(lockEndTs * 1000).toLocaleString();
-      showStatus(`Early withdrawal attempt recorded. You are locked until: ${until}`);
-    } else {
-      showStatus("Withdraw successful.");
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: POLYGON_CHAIN_ID_HEX }]
+    });
+    return true;
+  } catch (switchErr) {
+    // If chain not added, try add
+    if (switchErr && switchErr.code === 4902) {
+      try {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [POLYGON_PARAMS]
+        });
+        return true;
+      } catch (addErr) {
+        // user rejected add
+        showNetworkRejectMessage(addErr);
+        return false;
+      }
     }
 
-    await updateStakedInfo();
-    await fetchStakeTimestamp();
-  } catch (error) {
-    // If your contract still reverts on early attempt, you'll land here and the lock won't persist.
-    console.error("Withdrawal error:", error);
-    showStatus("Withdraw failed. If this was an early attempt, ensure the contract doesn't revert and try again.", true);
+    // user rejected switch or other error
+    showNetworkRejectMessage(switchErr);
+    return false;
   }
 }
 
+function showNetworkRejectMessage(err) {
+  // nicer prompts when user rejects switching
+  setTopStatus(
+    `No worries — you can stay on your current network.<br/>
+     To use <span class="font-semibold">Buy</span> / <span class="font-semibold">Stake</span> / <span class="font-semibold">Withdraw</span>,
+     please switch to <span class="font-semibold">Polygon</span> in your wallet when you’re ready.`,
+    true
+  );
 
-
-function stopCountdown() {
-  if (countdownTimer) {
-    clearInterval(countdownTimer);
-    countdownTimer = null;
-  }
+  // Disable actions safely
+  setActionsEnabled(false, "Switch to Polygon to use this feature.");
+  console.warn("Network switch rejected/error:", err);
 }
 
-function startCountdown(stakeStartTimeSec, durationSec) {
-  stopCountdown(); // avoid multiple intervals
+function setActionsEnabled(enabled, tooltipMsg="") {
+  const ids = ["buyBtn","stakeBtn","withdrawBtn"];
+  ids.forEach(id => {
+    const btn = $(id);
+    if (!btn) return;
+    btn.disabled = !enabled || (id==="withdrawBtn" && btn.dataset.forceDisabled==="1");
+    btn.title = (!enabled ? tooltipMsg : (btn.title || ""));
+  });
+}
 
-  const el = document.getElementById("withdrawCountdown");
+/* ============================================================
+   CONNECT + INIT
+============================================================ */
+async function initContracts() {
+  fixedContract = new web3.eth.Contract(FIXED_ABI, FIXED_CONTRACT_ADDRESS);
+  blgToken = new web3.eth.Contract(ERC20_ABI, BLG_TOKEN_ADDRESS);
+  usdtToken = new web3.eth.Contract(ERC20_ABI, USDT_TOKEN_ADDRESS);
+}
 
-  const update = () => {
-    const now = Math.floor(Date.now() / 1000);
-    const unlockTime = stakeStartTimeSec + durationSec;
-    let remaining = unlockTime - now;
+async function connectWallet() {
+  if (!window.ethereum) {
+    setTopStatus('MetaMask not found. Please install MetaMask.', true);
+    return;
+  }
 
-    if (remaining <= 0) {
-      el.textContent = "Withdrawal available now!";
-      stopCountdown();
+  try {
+    const okNet = await ensurePolygonNetwork();
+    // even if they reject, they can still connect; we’ll keep actions disabled
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+
+    web3 = new Web3(window.ethereum);
+    const accounts = await web3.eth.getAccounts();
+    account = accounts && accounts.length ? accounts[0] : null;
+
+    if (!account) {
+      setTopStatus("No wallet account found.", true);
       return;
     }
 
-    const days = Math.floor(remaining / (60 * 60 * 24));
-    const hours = Math.floor((remaining % (60 * 60 * 24)) / (60 * 60));
-    const minutes = Math.floor((remaining % (60 * 60)) / 60);
-    const seconds = remaining % 60;
+    $("accountBadge").textContent = `Wallet: ${shortAddr(account)}`;
+    $("contractAddr").textContent = `Contract: ${FIXED_CONTRACT_ADDRESS}`;
+    await initContracts();
 
-    el.textContent = `Withdrawal available in: ${days}d ${hours}h ${minutes}m ${seconds}s`;
+    // show network badge
+    const chainId = await window.ethereum.request({ method: "eth_chainId" });
+    $("netBadge").textContent = (chainId === POLYGON_CHAIN_ID_HEX) ? "Network: Polygon" : `Network: ${chainId} (switch to Polygon)`;
+
+    // enable/disable actions based on network
+    setActionsEnabled(chainId === POLYGON_CHAIN_ID_HEX);
+
+    await refreshAll();
+
+    // listeners
+    window.ethereum.on("accountsChanged", async (accs) => {
+      account = accs && accs.length ? accs[0] : null;
+      $("accountBadge").textContent = account ? `Wallet: ${shortAddr(account)}` : "";
+      stopCountdown();
+      if (account) {
+        await refreshAll();
+      }
+    });
+
+    window.ethereum.on("chainChanged", async (newChainId) => {
+      $("netBadge").textContent = (newChainId === POLYGON_CHAIN_ID_HEX) ? "Network: Polygon" : `Network: ${newChainId} (switch to Polygon)`;
+      setActionsEnabled(newChainId === POLYGON_CHAIN_ID_HEX, "Switch to Polygon to use this feature.");
+      stopCountdown();
+      if (newChainId === POLYGON_CHAIN_ID_HEX && account) {
+        setTopStatus("", false);
+        await refreshAll();
+      } else {
+        showNetworkRejectMessage({ code: "CHAIN_NOT_POLYGON" });
+      }
+    });
+
+    if (okNet) setTopStatus("", false);
+
+  } catch (err) {
+    console.error(err);
+    setTopStatus("Connection failed: " + (err?.message || err), true);
+  }
+}
+
+$("connectBtn").addEventListener("click", connectWallet);
+
+/* ============================================================
+   REFRESH READS
+============================================================ */
+async function refreshAll() {
+  if (!fixedContract || !account) return;
+
+  try {
+    // Verify network is Polygon before reads that power UX (avoid confusion)
+    const chainId = await window.ethereum.request({ method: "eth_chainId" });
+    const onPolygon = (chainId === POLYGON_CHAIN_ID_HEX);
+    setActionsEnabled(onPolygon, "Switch to Polygon to use this feature.");
+    if (!onPolygon) return;
+
+    // contract fields
+    const owner = await fixedContract.methods.owner().call();
+    const usdt = await fixedContract.methods.usdt().call();
+    const blg  = await fixedContract.methods.blg().call();
+    const price = await fixedContract.methods.BLG_PRICE().call();
+    const rewardPercent = await fixedContract.methods.stakingRewardPercent().call();
+    const durationSec = Number(await fixedContract.methods.stakingDuration().call());
+
+    $("ownerAddr").textContent = `Owner: ${owner}`;
+    $("usdtAddr").textContent = `USDT: ${usdt}`;
+    $("blgAddr").textContent  = `BLG: ${blg}`;
+    $("priceInfo").textContent = `BLG_PRICE: ${price} (USDT base units; USDT has 6 decimals)`;
+    $("rewardInfo").textContent = `stakingRewardPercent: ${rewardPercent} %`;
+    $("durationInfo").textContent = `stakingDuration: ${durationSec} seconds (${(durationSec/86400).toFixed(2)} days)`;
+
+    $("priceBadge").textContent = `Price: ${formatUSDTBaseToHuman(price)} USDT / 1 BLG`;
+    $("rewardBadge").textContent = `Reward: ${rewardPercent}%`;
+    $("durationLabel").textContent = `Duration: ${(durationSec/86400).toFixed(2)} days`;
+
+    // contract balances
+    const contractBlgBal = await blgToken.methods.balanceOf(FIXED_CONTRACT_ADDRESS).call();
+    const contractUsdtBal = await usdtToken.methods.balanceOf(FIXED_CONTRACT_ADDRESS).call();
+    $("balancesInfo").textContent =
+      `Contract balances (BLG / USDT): ${formatBLGWeiToHuman(contractBlgBal)} BLG  /  ${formatUSDTBaseToHuman(contractUsdtBal)} USDT`;
+
+    // user stake info
+    lastDurationSec = durationSec;
+    await refreshStakeInfo();
+
+    // helpful hints
+    $("buyHint").textContent = `Buying uses USDT approval → contract then calls buyBLG(blgAmount). BLG is transferred from the contract to your wallet.`;
+    $("stakeHint").textContent = `Staking uses BLG approval → contract then calls stake(amountInWei). Only one active stake per address at a time (per contract).`;
+
+  } catch (err) {
+    console.error(err);
+    setStatus("Refresh error: " + (err?.message || err), true);
+  }
+}
+
+async function refreshStakeInfo() {
+  if (!fixedContract || !account) return;
+
+  try {
+    const info = await fixedContract.methods.getStakeInfo(account).call();
+    // (amount,startTime,claimed,isLocked,lockEndTime,withdrawn,withdrawable,reward)
+    const amountWei = web3.utils.toBN(info.amount || "0");
+    const startTime = Number(info.startTime || 0);
+    const claimed = !!info.claimed;
+    const withdrawable = !!info.withdrawable;
+    const rewardWei = web3.utils.toBN(info.reward || "0");
+
+    // Display
+    $("myStakeAmount").textContent = `Staked: ${amountWei.isZero() ? "0" : formatBLGWeiToHuman(amountWei.toString())} BLG`;
+    $("myStakeStart").textContent = startTime ? `Start time: ${new Date(startTime * 1000).toLocaleString()}` : "Start time: --";
+    $("myRewardEstimate").textContent = `Reward estimate: ${amountWei.isZero() ? "0" : formatBLGWeiToHuman(rewardWei.toString())} BLG`;
+
+    // IMPORTANT: You asked to remove early-withdraw attempt UX and lock UX.
+    // So we DO NOT encourage early withdraw; we simply disable the Withdraw button until staking duration completes.
+    // We also do not show lock status or provide a "clear lock" action in the UI.
+
+    // Withdraw button gating
+    const withdrawBtn = $("withdrawBtn");
+
+    if (amountWei.isZero() || claimed || startTime === 0) {
+      stopCountdown();
+      $("myWithdrawable").textContent = "Withdraw status: --";
+      $("myCountdown").textContent = "Time remaining: --";
+      withdrawBtn.dataset.forceDisabled = "1";
+      withdrawBtn.disabled = true;
+      withdrawBtn.title = "No active stake to withdraw.";
+      $("withdrawHint").textContent = "";
+      return;
+    }
+
+    // compute unlock by stakingDuration (not using the contract lock mechanism in UI)
+    lastStakeStart = startTime;
+    const now = Math.floor(Date.now()/1000);
+    const unlockAt = startTime + lastDurationSec;
+
+    if (now >= unlockAt && withdrawable) {
+      stopCountdown();
+      $("myWithdrawable").textContent = "Withdraw status: Available";
+      $("myCountdown").textContent = "Time remaining: 0s";
+      withdrawBtn.dataset.forceDisabled = "0";
+      withdrawBtn.disabled = false;
+      withdrawBtn.title = "Ready to withdraw. Click to confirm and send the transaction.";
+      $("withdrawHint").textContent = "When you click Withdraw, you’ll be asked to confirm before sending the transaction.";
+    } else {
+      // disabled until complete
+      withdrawBtn.dataset.forceDisabled = "1";
+      withdrawBtn.disabled = true;
+      startCountdown(unlockAt);
+      $("myWithdrawable").textContent = "Withdraw status: Not available yet";
+      $("withdrawHint").textContent = "Withdraw is disabled until your staking duration is complete.";
+    }
+
+  } catch (err) {
+    console.error(err);
+    setStatus("Could not fetch stake info: " + (err?.message || err), true);
+  }
+}
+
+/* ============================================================
+   COUNTDOWN + TOOLTIP (disabled withdraw)
+============================================================ */
+function stopCountdown() {
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+}
+
+function startCountdown(unlockAtSec) {
+  stopCountdown();
+  const el = $("myCountdown");
+  const btn = $("withdrawBtn");
+
+  const tick = () => {
+    const now = Math.floor(Date.now()/1000);
+    let rem = unlockAtSec - now;
+    if (rem <= 0) {
+      el.textContent = "Time remaining: 0s";
+      btn.title = "Ready to withdraw. Click to confirm and send the transaction.";
+      stopCountdown();
+      // refresh stake info to enable button based on contract state
+      refreshStakeInfo().catch(()=>{});
+      return;
+    }
+
+    const d = Math.floor(rem / 86400);
+    rem %= 86400;
+    const h = Math.floor(rem / 3600);
+    rem %= 3600;
+    const m = Math.floor(rem / 60);
+    const s = rem % 60;
+
+    const msg = `Time remaining: ${d}d ${h}h ${m}m ${s}s`;
+    el.textContent = msg;
+
+    // Tooltip requested
+    btn.title = `Withdraw is disabled until the staking period ends. ${d}d ${h}h ${m}m ${s}s remaining.`;
   };
 
-  update(); // run immediately
-  countdownTimer = setInterval(update, 1000);
+  tick();
+  countdownTimer = setInterval(tick, 1000);
 }
 
+/* ============================================================
+   ACTIONS — BUY, STAKE, WITHDRAW (NO EARLY ATTEMPT UX)
+============================================================ */
+$("buyBtn").addEventListener("click", async () => {
+  if (!account) return setStatus("Connect your wallet first.", true);
 
+  const chainId = await window.ethereum.request({ method: "eth_chainId" });
+  if (chainId !== POLYGON_CHAIN_ID_HEX) return showNetworkRejectMessage({ code: "NOT_POLYGON" });
 
-async function fetchStakeTimestamp() {
-  if (!fixedContract || !userAccount) return;
+  const blgAmountStr = ensureIntString($("buyAmount").value);
+  if (!blgAmountStr) return setStatus("Enter a valid whole number of BLG to buy (e.g. 100).", true);
 
   try {
-    const stake = await fixedContract.methods.stakes(userAccount).call();
-    const timestamp = Number(stake.startTime);        // seconds
-    const stakedAmount = web3.utils.toBN(stake.amount);
-    const claimed = stake.claimed;
+    setStatus("Checking price and preparing USDT approval...");
 
-    const stakeTimestampInfo = document.getElementById("stakeTimestampInfo");
-    const withdrawCountdown = document.getElementById("withdrawCountdown");
+    const price = await fixedContract.methods.BLG_PRICE().call(); // USDT base units (6 decimals)
+    const usdtNeeded = web3.utils.toBN(price).mul(web3.utils.toBN(blgAmountStr));
 
-    // If already withdrawn or no active stake — stop and reset display
-    if (claimed || timestamp === 0 || stakedAmount.isZero()) {
-      stopCountdown();
-      stakeTimestampInfo.textContent = "Stake Timestamp: --";
-      withdrawCountdown.textContent = "Withdrawal available in: --";
-      return;
+    // check allowance
+    const allowance = await usdtToken.methods.allowance(account, FIXED_CONTRACT_ADDRESS).call();
+    if (web3.utils.toBN(allowance).lt(usdtNeeded)) {
+      setStatus(`Approving USDT (${formatUSDTBaseToHuman(usdtNeeded.toString())}) for the contract...`);
+      const gasA = await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, usdtNeeded.toString()).estimateGas({ from: account });
+      await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, usdtNeeded.toString()).send({ from: account, gas: gasA + 5000 });
+    } else {
+      setStatus("USDT allowance is already sufficient.");
     }
 
-    // Active stake: show start time + run live countdown
-    const formatted = new Date(timestamp * 1000).toLocaleString();
-    stakeTimestampInfo.textContent = `Stake Timestamp: ${formatted}`;
+    setStatus("Sending buyBLG transaction...");
+    const gas = await fixedContract.methods.buyBLG(blgAmountStr).estimateGas({ from: account });
+    await fixedContract.methods.buyBLG(blgAmountStr).send({ from: account, gas: gas + 8000 });
 
-    // Use your existing frontend constant (18 days):
-    const onchainDuration = Number(await fixedContract.methods.stakingDuration().call());
-    startCountdown(timestamp, onchainDuration);
-
-  } catch (error) {
-    console.error("Error fetching stake timestamp:", error);
-    stopCountdown();
-    document.getElementById("stakeTimestampInfo").textContent = "Stake Timestamp: --";
-    document.getElementById("withdrawCountdown").textContent = "Withdrawal available in: --";
-  }
-}
-
-
-
-
-async function updateStakedInfo() {
-  if (!window.ethereum || !window.web3 || !userAccount) return;
-  try {
-    const stake = await fixedContract.methods.stakes(userAccount).call();
-    const formatted = web3.utils.fromWei(stake.amount.toString(), 'ether');
-    document.getElementById("stakedInfo").textContent = `Staked: ${formatted} BLG`;
-  } catch (error) {
-    console.error("Error fetching staked amount:", error);
-    document.getElementById("stakedInfo").textContent = "Staked: --";
-  }
-}
-
-
-
-function showStatus(message, isError = false) {
-  const statusDiv = document.getElementById("status");
-  statusDiv.innerHTML = message;
-  statusDiv.className = isError ? 'text-red-400' : 'text-green-400';
-}
-
-
-async function getStakedAmount() {
-  try {
-    const stakeInfo = await fixedContract.methods.stakes(account).call();
-    const stakedAmount = web3.utils.fromWei(stakeInfo.amount, 'ether');
-  
-    document.getElementById("stakedInfo").textContent = `Staked: ${stakedAmount} BLG`;
+    setStatus("Purchase complete.");
+    await refreshAll();
   } catch (err) {
-    console.error("Error fetching staked amount:", err);
-    document.getElementById("stakedInfo").textContent = "Staked: Error";
+    console.error(err);
+    setStatus("Buy failed: " + (err?.message || err), true);
   }
-}
+});
 
+$("stakeBtn").addEventListener("click", async () => {
+  if (!account) return setStatus("Connect your wallet first.", true);
 
-let withdrawalConfirmed = false;
-let earlyWithdrawLock = {}; // simple in-memory lock tracking
+  const chainId = await window.ethereum.request({ method: "eth_chainId" });
+  if (chainId !== POLYGON_CHAIN_ID_HEX) return showNetworkRejectMessage({ code: "NOT_POLYGON" });
 
+  const raw = ($("stakeAmount").value || "").trim();
+  if (!raw || Number(raw) <= 0) return setStatus("Enter a valid BLG amount to stake.", true);
 
+  try {
+    const stakeWei = web3.utils.toWei(raw, "ether");
+
+    // quick balance check (BLG)
+    const bal = await blgToken.methods.balanceOf(account).call();
+    if (web3.utils.toBN(bal).lt(web3.utils.toBN(stakeWei))) {
+      return setStatus("Insufficient BLG balance for that stake amount.", true);
+    }
+
+    // enforce "only one active stake" UX by checking getStakeInfo
+    const info = await fixedContract.methods.getStakeInfo(account).call();
+    if (web3.utils.toBN(info.amount || "0").gt(web3.utils.toBN("0")) && !info.claimed) {
+      return setStatus("You already have an active stake in this contract. Withdraw it before staking again.", true);
+    }
+
+    // allowance
+    const allowance = await blgToken.methods.allowance(account, FIXED_CONTRACT_ADDRESS).call();
+    if (web3.utils.toBN(allowance).lt(web3.utils.toBN(stakeWei))) {
+      setStatus("Approving BLG for staking...");
+      const gasA = await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeWei).estimateGas({ from: account });
+      await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeWei).send({ from: account, gas: gasA + 5000 });
+    } else {
+      setStatus("BLG allowance is already sufficient.");
+    }
+
+    setStatus("Sending stake transaction...");
+    const gas = await fixedContract.methods.stake(stakeWei).estimateGas({ from: account });
+    await fixedContract.methods.stake(stakeWei).send({ from: account, gas: gas + 8000 });
+
+    setStatus("Stake successful.");
+    await refreshAll();
+  } catch (err) {
+    console.error(err);
+    setStatus("Stake failed: " + (err?.message || err), true);
+  }
+});
+
+$("withdrawBtn").addEventListener("click", async () => {
+  if (!account) return setStatus("Connect your wallet first.", true);
+
+  const chainId = await window.ethereum.request({ method: "eth_chainId" });
+  if (chainId !== POLYGON_CHAIN_ID_HEX) return showNetworkRejectMessage({ code: "NOT_POLYGON" });
+
+  // Button is disabled until staking duration is complete; when enabled, ask confirmation.
+  const ok = confirm("Are you sure you want to withdraw your stake now?\n\nThis will send a transaction to withdraw your staked BLG plus the reward (if available).");
+  if (!ok) {
+    setStatus("Withdrawal cancelled.");
+    return;
+  }
+
+  try {
+    setStatus("Sending withdrawStake transaction...");
+    const gas = await fixedContract.methods.withdrawStake().estimateGas({ from: account });
+    await fixedContract.methods.withdrawStake().send({ from: account, gas: gas + 8000 });
+
+    setStatus("Withdraw successful.");
+    await refreshAll();
+  } catch (err) {
+    console.error(err);
+    setStatus("Withdraw failed: " + (err?.message || err), true);
+  }
+});
+
+/* ============================================================
+   AUTO-REFRESH
+============================================================ */
+setInterval(async () => {
+  if (!account || !fixedContract) return;
+  try {
+    const chainId = await window.ethereum.request({ method: "eth_chainId" });
+    if (chainId !== POLYGON_CHAIN_ID_HEX) return;
+    await refreshStakeInfo();
+  } catch (_) {}
+}, 15000);
+
+// Pre-fill contract address label
+$("contractAddr").textContent = `Contract: ${FIXED_CONTRACT_ADDRESS}`;
 </script>
 </body>
 </html>
+```
 
 		
     <!-- end about -->
@@ -1532,6 +878,7 @@ let earlyWithdrawLock = {}; // simple in-memory lock tracking
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
