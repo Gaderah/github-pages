@@ -158,143 +158,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>BluGo Token Sale & Staking (Polygon Locked)</title>
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+  <!-- SAME VERSIONS AS YOUR FILE -->
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 
-<body class="bg-slate-950 text-slate-100 min-h-screen">
-  <div class="max-w-5xl mx-auto p-4">
-    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+<body class="bg-gray-900 text-white font-sans min-h-screen">
+  <div class="container mx-auto p-4 max-w-4xl">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div>
         <h1 class="text-3xl font-bold">BluGo Token Sale & Staking</h1>
-        <p class="text-sm text-slate-300 mt-1">Polygon Mainnet Locked (chainId 137)</p>
+        <div class="text-sm text-gray-300 mt-1">Locked to Polygon Mainnet (chainId 137)</div>
       </div>
 
       <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
-        <button id="connectBtn" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold">
+        <button id="connectBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
           Connect Wallet
         </button>
-
-        <button id="switchBtn" class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 font-semibold">
+        <button id="switchBtn" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
           Switch to Polygon
         </button>
-
-        <div class="text-sm">
-          <div id="walletLine" class="text-slate-200"></div>
-          <div id="netLine" class="text-slate-400"></div>
-        </div>
       </div>
     </div>
 
-    <div id="status" class="mt-4 text-sm text-slate-300"></div>
+    <div class="mt-3 text-sm">
+      <div id="walletAddress" class="text-gray-200"></div>
+      <div id="netLine" class="text-gray-400"></div>
+    </div>
+
+    <div id="status" class="mt-3 text-sm text-gray-300"></div>
 
     <div class="grid md:grid-cols-2 gap-4 mt-6">
       <!-- BUY -->
-      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-2">
+      <div class="bg-gray-800 p-4 rounded">
+        <div class="flex items-center justify-between">
           <h2 class="text-xl font-bold">Buy BLG</h2>
-          <span class="text-xs px-2 py-1 rounded-full bg-slate-800 text-slate-200">Price: 2 USDT / BLG</span>
+          <span class="text-xs px-2 py-1 rounded bg-gray-700 text-gray-200">Price: 2 USDT / BLG</span>
         </div>
 
-        <label class="text-xs text-slate-300">Amount (whole BLG)</label>
-        <input id="buyAmount" type="number" min="1" step="1"
-               placeholder="e.g. 100"
-               class="mt-1 w-full rounded-lg p-2 text-slate-900" />
+        <input type="number" id="buyAmount" min="1" step="1"
+               placeholder="Amount of BLG (whole tokens)"
+               class="w-full p-2 text-black rounded mt-3 mb-2">
 
-        <button id="buyBtn" class="mt-3 w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 font-semibold">
+        <button id="buyBtn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full">
           Approve USDT & Buy
         </button>
 
-        <div class="mt-3 text-xs text-slate-300 space-y-1">
-          <div>Cost preview: <span id="buyCostPreview" class="font-mono">--</span></div>
+        <div class="mt-2 text-xs text-gray-300">
+          Preview: <span id="buyPreview" class="font-mono">--</span>
         </div>
       </div>
 
       <!-- STAKE -->
-      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-        <div class="flex items-center justify-between mb-2">
+      <div class="bg-gray-800 p-4 rounded">
+        <div class="flex items-center justify-between">
           <h2 class="text-xl font-bold">Stake BLG</h2>
-          <span class="text-xs px-2 py-1 rounded-full bg-slate-800 text-slate-200">Reward: 10%</span>
+          <span class="text-xs px-2 py-1 rounded bg-gray-700 text-gray-200">Reward: 10%</span>
         </div>
 
-        <label class="text-xs text-slate-300">Amount (BLG)</label>
-        <input id="stakeAmount" type="number" min="0" step="0.000000000000000001"
-               placeholder="e.g. 12.5"
-               class="mt-1 w-full rounded-lg p-2 text-slate-900" />
+        <input type="number" id="stakeAmount" min="0.000000000000000001" step="0.000000000000000001"
+               placeholder="Amount to Stake (BLG)"
+               class="w-full p-2 text-black rounded mt-3 mb-2">
 
-        <button id="stakeBtn" class="mt-3 w-full px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold">
+        <button id="stakeBtn" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded w-full">
           Approve BLG & Stake
         </button>
 
-        <p class="mt-3 text-xs text-slate-300">
+        <p class="mt-2 text-xs text-gray-300">
           Only one active stake per address at a time.
         </p>
       </div>
     </div>
 
-    <div class="grid md:grid-cols-2 gap-4 mt-4">
-      <!-- READ -->
-      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-        <div class="flex items-center justify-between">
-          <h2 class="text-xl font-bold">My Wallet & Stake</h2>
-          <button id="refreshBtn" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-sm font-semibold">
-            Refresh
-          </button>
-        </div>
-
-        <div class="mt-3 text-sm space-y-2">
-          <div class="flex justify-between gap-4">
-            <span class="text-slate-300">USDT Balance</span>
-            <span id="usdtBal" class="font-mono">--</span>
-          </div>
-          <div class="flex justify-between gap-4">
-            <span class="text-slate-300">BLG Balance</span>
-            <span id="blgBal" class="font-mono">--</span>
-          </div>
-
-          <div class="h-px bg-slate-800 my-2"></div>
-
-          <div class="flex justify-between gap-4">
-            <span class="text-slate-300">Staked</span>
-            <span id="stakedAmt" class="font-mono">--</span>
-          </div>
-          <div class="flex justify-between gap-4">
-            <span class="text-slate-300">Start</span>
-            <span id="stakedStart" class="font-mono">--</span>
-          </div>
-          <div class="flex justify-between gap-4">
-            <span class="text-slate-300">Claimed</span>
-            <span id="stakedClaimed" class="font-mono">--</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- WITHDRAW -->
-      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-        <h2 class="text-xl font-bold">Withdraw</h2>
-        <p class="mt-2 text-sm text-slate-300">
-          Withdraw your staked BLG (+ reward if eligible).
-        </p>
-
-        <button id="withdrawBtn" class="mt-4 w-full px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 font-semibold">
-          Withdraw Stake
-        </button>
-
-        <div class="mt-3 text-xs text-slate-400">
-          Confirm in MetaMask before sending.
-        </div>
-      </div>
+    <div class="mt-4">
+      <button id="withdrawBtn" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded w-full md:w-auto">
+        Withdraw Stake
+      </button>
     </div>
 
-    <div class="mt-6 text-xs text-slate-400">
-      <div class="font-semibold text-slate-300 mb-1">Contract Addresses</div>
+    <div class="mt-6 text-xs text-gray-400">
+      <div class="font-bold text-gray-300 mb-1">Addresses</div>
       <div class="font-mono break-all">Fixed: <span id="addrFixed"></span></div>
       <div class="font-mono break-all">BLG: <span id="addrBlg"></span></div>
       <div class="font-mono break-all">USDT: <span id="addrUsdt"></span></div>
@@ -302,53 +252,41 @@
   </div>
 
 <script>
-/* =======================
-   Addresses (Polygon)
-======================= */
-const FIXED_CONTRACT_ADDRESS = "0x1A79B993440687B64bCc74Bd3f2e079651B68Cd4";
+/* ============================================================
+   SAME LIBS AS YOUR FILE: web3@1.10.0 + tailwind@2.2.19
+   + Polygon chain lock + Switch to Polygon button
+============================================================ */
+
+/* ===== Addresses (from your message) ===== */
+const FIXED_CONTRACT_ADDRESS = "0xB7c9b8a715b5feD7195A00deE19088208aEc7229";
 const BLG_TOKEN_ADDRESS      = "0xd498b276EE8Fb629e1B4103491585AD8f1a4bD53";
 const USDT_TOKEN_ADDRESS     = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
 
-/* =======================
-   Chain lock
-======================= */
+/* ===== Chain lock ===== */
 const REQUIRED_CHAIN_ID_DEC = 137;
 const REQUIRED_CHAIN_ID_HEX = "0x89"; // 137
 
-/* =======================
-   ABIs (minimal)
-======================= */
-const FIXED_ABI = [
-  "function buyBLG(uint256 blgAmount) external",
-  "function stake(uint256 amount) external",
-  "function withdrawStake() external",
-  "function stakes(address) view returns (uint256 amount, uint256 startTime, bool claimed)"
+/* ===== Minimal ABIs ===== */
+const FIXED_CONTRACT_ABI = [
+  { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "buyBLG", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "stake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+  { "inputs": [], "name": "withdrawStake", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
 ];
 
 const ERC20_ABI = [
-  "function allowance(address owner, address spender) view returns (uint256)",
-  "function approve(address spender, uint256 amount) returns (bool)",
-  "function balanceOf(address owner) view returns (uint256)",
-  "function decimals() view returns (uint8)"
+  { "constant": true, "inputs": [{ "name": "owner", "type": "address" }, { "name": "spender", "type": "address" }], "name": "allowance", "outputs": [{ "name": "", "type": "uint256" }], "type": "function" },
+  { "constant": false, "inputs": [{ "name": "spender", "type": "address" }, { "name": "amount", "type": "uint256" }], "name": "approve", "outputs": [{ "name": "", "type": "bool" }], "stateMutability": "nonpayable", "type": "function" }
 ];
 
-/* =======================
-   State
-======================= */
-let provider = null;
-let signer = null;
+/* ===== State ===== */
+let web3 = null;
 let account = null;
 
-let fixed = null;
-let blg = null;
-let usdt = null;
+let fixedContract = null;
+let blgToken = null;
+let usdtToken = null;
 
-let USDT_DECIMALS = 6;
-let BLG_DECIMALS = 18;
-
-/* =======================
-   UI helpers
-======================= */
+/* ===== UI helpers ===== */
 const $ = (id) => document.getElementById(id);
 
 $("addrFixed").textContent = FIXED_CONTRACT_ADDRESS;
@@ -359,21 +297,23 @@ function shortAddr(a) {
   return a ? a.slice(0, 6) + "..." + a.slice(-4) : "";
 }
 
-function setStatus(msg, kind = "info") {
-  const el = $("status");
-  const cls = { info:"text-slate-300", ok:"text-emerald-300", warn:"text-amber-300", err:"text-rose-300" }[kind] || "text-slate-300";
-  el.className = "mt-4 text-sm " + cls;
-  el.innerHTML = msg || "";
+function showStatus(message, isError = false) {
+  const statusDiv = $("status");
+  statusDiv.innerHTML = message || "";
+  statusDiv.className = "mt-3 text-sm " + (isError ? "text-red-400" : "text-green-400");
 }
 
 function setActionsEnabled(enabled) {
-  const ids = ["buyBtn","stakeBtn","refreshBtn","withdrawBtn"];
-  for (const id of ids) {
-    const b = $(id);
-    b.disabled = !enabled;
-    b.classList.toggle("opacity-50", !enabled);
-    b.classList.toggle("cursor-not-allowed", !enabled);
-  }
+  const ids = ["buyBtn", "stakeBtn", "withdrawBtn"];
+  ids.forEach((id) => {
+    const el = $(id);
+    el.disabled = !enabled;
+    if (!enabled) {
+      el.classList.add("opacity-50", "cursor-not-allowed");
+    } else {
+      el.classList.remove("opacity-50", "cursor-not-allowed");
+    }
+  });
 }
 
 async function getChainIdDec() {
@@ -381,84 +321,104 @@ async function getChainIdDec() {
   return parseInt(chainHex, 16);
 }
 
-async function updateNetworkLine() {
-  if (!provider) return;
-  const net = await provider.getNetwork();
-  $("netLine").textContent = `Network: ${net.name} (${Number(net.chainId)})`;
-}
-
-function toUnits(amountStr, decimals) {
-  return ethers.parseUnits(amountStr, decimals);
-}
-
-function fmtUnits(value, decimals, maxFrac = 6) {
+async function updateNetLine() {
+  if (!window.ethereum) {
+    $("netLine").textContent = "";
+    return;
+  }
   try {
-    const s = ethers.formatUnits(value, decimals);
-    const [i, f] = s.split(".");
-    if (!f) return i;
-    const trimmed = f.slice(0, maxFrac).replace(/0+$/, "");
-    return trimmed ? `${i}.${trimmed}` : i;
+    const chainId = await getChainIdDec();
+    $("netLine").textContent = `Network chainId: ${chainId}`;
   } catch {
-    return "--";
+    $("netLine").textContent = "";
   }
 }
 
-/* =======================
-   Chain guard
-======================= */
+/* ===== Guard: refuse to run unless Polygon ===== */
 async function ensurePolygonOrLockUI(showMsg = true) {
   if (!window.ethereum) {
     setActionsEnabled(false);
-    if (showMsg) setStatus("MetaMask not detected.", "err");
+    if (showMsg) showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
     return false;
   }
 
   const chainId = await getChainIdDec();
+  await updateNetLine();
 
   if (chainId !== REQUIRED_CHAIN_ID_DEC) {
     setActionsEnabled(false);
-    if (showMsg) {
-      setStatus(
-        `Wrong network (chainId ${chainId}). This app is locked to <b>Polygon Mainnet (137)</b>. Click <b>Switch to Polygon</b>.`,
-        "err"
-      );
-    }
+    if (showMsg) showStatus(`Wrong network (chainId ${chainId}). This app is locked to <b>Polygon Mainnet (137)</b>. Click <b>Switch to Polygon</b>.`, true);
     return false;
   }
 
   setActionsEnabled(true);
-  if (showMsg) setStatus("Polygon Mainnet detected. Actions enabled.", "ok");
+  if (showMsg) showStatus("Polygon Mainnet detected. Actions enabled.");
   return true;
 }
 
-/* =======================
-   Switch to Polygon button
-======================= */
-async function switchToPolygon() {
+/* ===== Init contracts (only after connect + correct chain) ===== */
+function initContracts() {
+  fixedContract = new web3.eth.Contract(FIXED_CONTRACT_ABI, FIXED_CONTRACT_ADDRESS);
+  blgToken = new web3.eth.Contract(ERC20_ABI, BLG_TOKEN_ADDRESS);
+  usdtToken = new web3.eth.Contract(ERC20_ABI, USDT_TOKEN_ADDRESS);
+}
+
+/* ===== Connect ===== */
+async function connectWallet() {
   if (!window.ethereum) {
-    setStatus("MetaMask not detected.", "err");
+    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
+    setActionsEnabled(false);
     return;
   }
 
   try {
-    setStatus("Requesting network switch...", "info");
+    // Request accounts
+    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    account = (accounts && accounts.length) ? accounts[0] : null;
 
-    // Try switch
+    if (!account) {
+      showStatus("No account found or connection rejected.", true);
+      setActionsEnabled(false);
+      return;
+    }
+
+    web3 = new Web3(window.ethereum);
+    $("walletAddress").textContent = `Connected: ${shortAddr(account)}`;
+
+    const ok = await ensurePolygonOrLockUI(true);
+    if (!ok) return;
+
+    initContracts();
+    showStatus("Wallet connected on Polygon. Ready.");
+  } catch (err) {
+    console.error("Wallet connection error:", err);
+    showStatus("Wallet connection failed: " + (err?.message || err), true);
+    setActionsEnabled(false);
+  }
+}
+
+/* ===== Switch to Polygon button ===== */
+async function switchToPolygon() {
+  if (!window.ethereum) {
+    showStatus("MetaMask not detected.", true);
+    return;
+  }
+
+  try {
+    showStatus("Requesting switch to Polygon...");
     await window.ethereum.request({
       method: "wallet_switchEthereumChain",
       params: [{ chainId: REQUIRED_CHAIN_ID_HEX }]
     });
-
-    // If provider exists, refresh its view
-    if (provider) await updateNetworkLine();
-
     await ensurePolygonOrLockUI(true);
-  } catch (e) {
-    // If chain not added, add it
-    if (e && (e.code === 4902 || (e.data && e.data.originalError && e.data.originalError.code === 4902))) {
-      try {
-        setStatus("Polygon not found in wallet. Adding Polygon Mainnet...", "warn");
 
+    // If already connected, keep contracts usable after switching
+    if (web3 && account) initContracts();
+  } catch (e) {
+    // 4902 = chain not added
+    if (e && e.code === 4902) {
+      try {
+        showStatus("Polygon not found in wallet. Adding Polygon Mainnet...");
         await window.ethereum.request({
           method: "wallet_addEthereumChain",
           params: [{
@@ -469,261 +429,170 @@ async function switchToPolygon() {
             blockExplorerUrls: ["https://polygonscan.com/"]
           }]
         });
-
-        if (provider) await updateNetworkLine();
         await ensurePolygonOrLockUI(true);
+        if (web3 && account) initContracts();
       } catch (addErr) {
         console.error(addErr);
-        setStatus("Failed to add Polygon: " + (addErr?.message || String(addErr)), "err");
+        showStatus("Failed to add Polygon: " + (addErr?.message || addErr), true);
       }
       return;
     }
 
     console.error(e);
-    setStatus("Network switch failed: " + (e?.message || String(e)), "err");
+    showStatus("Network switch failed: " + (e?.message || e), true);
   }
 }
 
-$("switchBtn").addEventListener("click", switchToPolygon);
-
-/* =======================
-   Connect
-======================= */
-async function connectWallet() {
-  if (!window.ethereum) {
-    setStatus(`MetaMask not detected. <a class="underline text-blue-400" target="_blank" href="https://metamask.io/download.html">Install MetaMask</a>.`, "err");
-    setActionsEnabled(false);
-    return;
-  }
-
-  try {
-    provider = new ethers.BrowserProvider(window.ethereum);
-
-    // Ask for accounts
-    await provider.send("eth_requestAccounts", []);
-    signer = await provider.getSigner();
-    account = await signer.getAddress();
-
-    $("walletLine").textContent = `Connected: ${shortAddr(account)}`;
-    await updateNetworkLine();
-
-    // Lock UI if not Polygon
-    const ok = await ensurePolygonOrLockUI(true);
-    if (!ok) return;
-
-    // Create contracts only when on Polygon
-    fixed = new ethers.Contract(FIXED_CONTRACT_ADDRESS, FIXED_ABI, signer);
-    blg   = new ethers.Contract(BLG_TOKEN_ADDRESS, ERC20_ABI, signer);
-    usdt  = new ethers.Contract(USDT_TOKEN_ADDRESS, ERC20_ABI, signer);
-
-    // Read decimals once
-    try { USDT_DECIMALS = Number(await usdt.decimals()); } catch {}
-    try { BLG_DECIMALS  = Number(await blg.decimals()); } catch {}
-
-    setStatus("Wallet connected on Polygon. Ready.", "ok");
-  } catch (e) {
-    console.error(e);
-    setStatus("Connection failed: " + (e?.shortMessage || e?.message || String(e)), "err");
-    setActionsEnabled(false);
-  }
-}
-
-$("connectBtn").addEventListener("click", connectWallet);
-
-/* =======================
-   React to network/account changes (no auto tx)
-======================= */
-if (window.ethereum) {
-  window.ethereum.on("chainChanged", async () => {
-    // Re-check lock state; user must click Connect again if signer/provider stale
-    // (Ethers usually requires a page reload to avoid weird state.)
-    setStatus("Network changed. Re-checking chain lock… (If anything looks off, reload page and reconnect.)", "warn");
-    await ensurePolygonOrLockUI(true);
-    if (provider) await updateNetworkLine();
-  });
-
-  window.ethereum.on("accountsChanged", async (accs) => {
-    account = accs && accs.length ? accs[0] : null;
-    $("walletLine").textContent = account ? `Connected: ${shortAddr(account)}` : "";
-    if (!account) {
-      setStatus("No account selected in wallet.", "err");
-      setActionsEnabled(false);
-    } else {
-      await ensurePolygonOrLockUI(true);
-    }
-  });
-}
-
-/* =======================
-   Cost preview (no chain calls)
-======================= */
-$("buyAmount").addEventListener("input", () => {
-  const raw = Number($("buyAmount").value);
-  const blgWhole = Number.isFinite(raw) ? Math.floor(raw) : 0;
-  $("buyCostPreview").textContent = blgWhole > 0
-    ? `${(2 * blgWhole).toLocaleString()} USDT (plus any contract fee if applied internally)`
-    : "--";
-});
-
-/* =======================
-   BUY
-======================= */
-$("buyBtn").addEventListener("click", async () => {
+/* ===== BUY (whole BLG, 2 USDT/BLG, plus 2% fee) =====
+   NOTE: your original math was inconsistent. Here we do:
+   baseUSDT = blgAmount * 2 * 1e6
+   fee = 2% of baseUSDT
+   approve = baseUSDT + fee
+   buyBLG() called with whole token amount (integer)
+==================================================== */
+async function buyBLG() {
   if (!(await ensurePolygonOrLockUI(true))) return;
-  if (!signer || !account || !fixed || !usdt) {
-    setStatus("Connect wallet first.", "err");
+  if (!web3 || !account || !fixedContract || !usdtToken) {
+    showStatus("Connect wallet first.", true);
     return;
   }
 
   const raw = Number($("buyAmount").value);
   const blgAmount = Number.isFinite(raw) ? Math.floor(raw) : 0;
+
   if (!blgAmount || blgAmount <= 0) {
-    setStatus("Enter a valid whole number of BLG to buy.", "err");
+    showStatus("Enter a valid whole number of BLG to buy (e.g. 100).", true);
     return;
   }
 
+  // USDT has 6 decimals
+  const baseUSDT = web3.utils.toBN("2000000").mul(web3.utils.toBN(String(blgAmount))); // 2e6 per BLG
+  const fee = baseUSDT.mul(web3.utils.toBN("2")).div(web3.utils.toBN("100")); // 2%
+  const totalWithFee = baseUSDT.add(fee);
+
   try {
-    // 2 USDT per BLG
-    const usdtNeeded = toUnits(String(2 * blgAmount), USDT_DECIMALS);
+    showStatus("Approving USDT...");
+    await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, totalWithFee.toString()).send({ from: account });
 
-    setStatus("Checking USDT allowance...", "info");
-    const allowance = await usdt.allowance(account, FIXED_CONTRACT_ADDRESS);
+    showStatus("Buying BLG...");
+    await fixedContract.methods.buyBLG(String(blgAmount)).send({ from: account });
 
-    if (allowance < usdtNeeded) {
-      setStatus("Approving USDT...", "warn");
-      const txA = await usdt.approve(FIXED_CONTRACT_ADDRESS, usdtNeeded);
-      setStatus(`USDT approval sent: <span class="font-mono">${txA.hash}</span>`, "info");
-      await txA.wait();
-      setStatus("USDT approval confirmed.", "ok");
-    }
-
-    setStatus("Sending buy transaction...", "warn");
-    const txB = await fixed.buyBLG(BigInt(blgAmount));
-    setStatus(`Buy tx sent: <span class="font-mono">${txB.hash}</span>`, "info");
-    await txB.wait();
-
-    setStatus("Buy complete. Click Refresh to update balances.", "ok");
-  } catch (e) {
-    console.error(e);
-    setStatus("Buy failed: " + (e?.shortMessage || e?.reason || e?.message || String(e)), "err");
+    showStatus("BLG purchase successful.");
+  } catch (error) {
+    console.error(error);
+    showStatus("Purchase failed: " + (error?.message || error), true);
   }
-});
+}
 
-/* =======================
-   STAKE
-======================= */
-$("stakeBtn").addEventListener("click", async () => {
+/* ===== STAKE ===== */
+async function stakeTokens() {
   if (!(await ensurePolygonOrLockUI(true))) return;
-  if (!signer || !account || !fixed || !blg) {
-    setStatus("Connect wallet first.", "err");
+  if (!web3 || !account || !fixedContract || !blgToken) {
+    showStatus("Connect wallet first.", true);
     return;
   }
 
   const amt = String($("stakeAmount").value || "").trim();
   if (!amt || Number(amt) <= 0) {
-    setStatus("Enter a valid BLG amount to stake.", "err");
+    showStatus("Enter a valid BLG amount to stake.", true);
     return;
   }
 
-  try {
-    const stakeWei = toUnits(amt, BLG_DECIMALS);
-
-    setStatus("Checking BLG allowance...", "info");
-    const allowance = await blg.allowance(account, FIXED_CONTRACT_ADDRESS);
-
-    if (allowance < stakeWei) {
-      setStatus("Approving BLG...", "warn");
-      const txA = await blg.approve(FIXED_CONTRACT_ADDRESS, stakeWei);
-      setStatus(`BLG approval sent: <span class="font-mono">${txA.hash}</span>`, "info");
-      await txA.wait();
-      setStatus("BLG approval confirmed.", "ok");
-    }
-
-    setStatus("Sending stake transaction...", "warn");
-    const txS = await fixed.stake(stakeWei);
-    setStatus(`Stake tx sent: <span class="font-mono">${txS.hash}</span>`, "info");
-    await txS.wait();
-
-    setStatus("Stake complete. Click Refresh to view your stake.", "ok");
-  } catch (e) {
-    console.error(e);
-    setStatus("Stake failed: " + (e?.shortMessage || e?.reason || e?.message || String(e)), "err");
-  }
-});
-
-/* =======================
-   REFRESH
-======================= */
-$("refreshBtn").addEventListener("click", async () => {
-  if (!(await ensurePolygonOrLockUI(true))) return;
-  if (!provider || !account || !fixed || !blg || !usdt) {
-    setStatus("Connect wallet first.", "err");
-    return;
-  }
+  const stakeAmountWei = web3.utils.toWei(amt, "ether");
 
   try {
-    setStatus("Refreshing balances & stake info...", "info");
+    showStatus("Approving BLG...");
+    await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmountWei).send({ from: account });
 
-    const [uBal, bBal, stake] = await Promise.all([
-      usdt.balanceOf(account),
-      blg.balanceOf(account),
-      fixed.stakes(account)
-    ]);
+    showStatus("Staking...");
+    await fixedContract.methods.stake(stakeAmountWei).send({ from: account });
 
-    $("usdtBal").textContent = fmtUnits(uBal, USDT_DECIMALS, 6);
-    $("blgBal").textContent  = fmtUnits(bBal, BLG_DECIMALS, 6);
-
-    const stakedAmount = stake.amount ?? stake[0];
-    const startTime    = stake.startTime ?? stake[1];
-    const claimed      = stake.claimed ?? stake[2];
-
-    $("stakedAmt").textContent = fmtUnits(stakedAmount, BLG_DECIMALS, 6);
-    $("stakedClaimed").textContent = String(!!claimed);
-
-    const st = Number(startTime);
-    $("stakedStart").textContent = st > 0 ? new Date(st * 1000).toLocaleString() : "--";
-
-    setStatus("Refreshed.", "ok");
-  } catch (e) {
-    console.error(e);
-    setStatus("Refresh failed: " + (e?.shortMessage || e?.message || String(e)), "err");
+    showStatus("Staking successful.");
+  } catch (error) {
+    console.error(error);
+    showStatus("Staking failed: " + (error?.message || error), true);
   }
-});
+}
 
-/* =======================
-   WITHDRAW
-======================= */
-$("withdrawBtn").addEventListener("click", async () => {
+/* ===== WITHDRAW ===== */
+async function withdrawStake() {
   if (!(await ensurePolygonOrLockUI(true))) return;
-  if (!signer || !account || !fixed) {
-    setStatus("Connect wallet first.", "err");
+  if (!web3 || !account || !fixedContract) {
+    showStatus("Connect wallet first.", true);
     return;
   }
 
   const ok = confirm("Withdraw now?\n\nThis will send a transaction to withdraw your staked BLG + reward (if eligible).");
   if (!ok) {
-    setStatus("Withdraw cancelled.", "info");
+    showStatus("Withdraw cancelled.");
     return;
   }
 
   try {
-    setStatus("Sending withdraw transaction...", "warn");
-    const txW = await fixed.withdrawStake();
-    setStatus(`Withdraw tx sent: <span class="font-mono">${txW.hash}</span>`, "info");
-    await txW.wait();
-
-    setStatus("Withdraw complete. Click Refresh to confirm.", "ok");
-  } catch (e) {
-    console.error(e);
-    setStatus("Withdraw failed: " + (e?.shortMessage || e?.reason || e?.message || String(e)), "err");
+    showStatus("Withdrawing stake...");
+    await fixedContract.methods.withdrawStake().send({ from: account });
+    showStatus("Withdraw successful.");
+  } catch (error) {
+    console.error(error);
+    showStatus("Withdraw failed: " + (error?.message || error), true);
   }
+}
+
+/* ===== Wire buttons ===== */
+$("connectBtn").addEventListener("click", connectWallet);
+$("switchBtn").addEventListener("click", switchToPolygon);
+$("buyBtn").addEventListener("click", buyBLG);
+$("stakeBtn").addEventListener("click", stakeTokens);
+$("withdrawBtn").addEventListener("click", withdrawStake);
+
+/* ===== Preview ===== */
+$("buyAmount").addEventListener("input", () => {
+  const raw = Number($("buyAmount").value);
+  const blgAmount = Number.isFinite(raw) ? Math.floor(raw) : 0;
+  if (!blgAmount || blgAmount <= 0) {
+    $("buyPreview").textContent = "--";
+    return;
+  }
+  const base = 2 * blgAmount;
+  const fee = base * 0.02;
+  $("buyPreview").textContent = `${base} USDT + ${fee.toFixed(2)} fee (approx)`;
 });
 
-/* =======================
-   Default: lock actions until connect + correct chain
-======================= */
-setActionsEnabled(false);
-setStatus("Connect wallet. This app will only enable actions on Polygon Mainnet (chainId 137).", "info");
+/* ===== On load: lock actions, set listeners ===== */
+window.addEventListener("load", async () => {
+  setActionsEnabled(false);
+
+  if (!window.ethereum) {
+    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
+    return;
+  }
+
+  // Passive: show chain line, but do not auto-connect or auto-tx
+  await updateNetLine();
+  await ensurePolygonOrLockUI(false);
+
+  window.ethereum.on("accountsChanged", async (accounts) => {
+    account = (accounts && accounts.length) ? accounts[0] : null;
+    $("walletAddress").textContent = account ? `Connected: ${shortAddr(account)}` : "";
+    if (!account) {
+      setActionsEnabled(false);
+      showStatus("No account selected.", true);
+      return;
+    }
+
+    // Re-init if already had web3 instance
+    if (web3) {
+      const ok = await ensurePolygonOrLockUI(true);
+      if (ok) initContracts();
+    }
+  });
+
+  window.ethereum.on("chainChanged", async () => {
+    // Don’t auto-run tx; just lock/unlock buttons
+    await ensurePolygonOrLockUI(true);
+    if (web3 && account) initContracts();
+  });
+});
 </script>
 </body>
 </html>
@@ -783,6 +652,7 @@ setStatus("Connect wallet. This app will only enable actions on Polygon Mainnet 
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
