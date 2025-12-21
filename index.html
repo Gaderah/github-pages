@@ -195,8 +195,7 @@
                placeholder="Amount of BLG (whole tokens)"
                class="w-full p-2 text-black rounded mb-2">
 
-        <button id="buyBtn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full" disabled
-                title="Connect wallet on Polygon to buy.">
+        <button id="buyBtn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full">
           Approve USDT & Buy
         </button>
 
@@ -214,8 +213,7 @@
                placeholder="Amount to Stake (BLG)"
                class="w-full p-2 text-black rounded mb-2">
 
-        <button id="stakeBtn" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded w-full" disabled
-                title="Connect wallet on Polygon to stake.">
+        <button id="stakeBtn" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded w-full">
           Approve BLG & Stake
         </button>
 
@@ -240,6 +238,12 @@
       </p>
     </div>
 
+    <div class="mt-4 flex gap-2">
+      <button id="refreshBtn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
+        Refresh Info
+      </button>
+    </div>
+
     <div id="status" class="mt-4 text-sm text-gray-300"></div>
   </div>
 
@@ -262,16 +266,17 @@ const POLYGON_PARAMS = {
 };
 
 /* ============================================================
-   ABI — EXACT FUNCTIONS THIS UI USES (matches contract)
+   ABI — only what the UI actually uses
 ============================================================ */
 const FIXED_ABI = [
-  {"inputs":[{"internalType":"address","name":"_usdt","type":"address"},{"internalType":"address","name":"_blg","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
   {"inputs":[],"name":"BLG_PRICE","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
   {"inputs":[],"name":"stakingRewardPercent","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
   {"inputs":[],"name":"stakingDuration","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+
   {"inputs":[{"internalType":"uint256","name":"blgAmount","type":"uint256"}],"name":"buyBLG","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"stake","outputs":[],"stateMutability":"nonpayable","type":"function"},
   {"inputs":[],"name":"withdrawStake","outputs":[],"stateMutability":"nonpayable","type":"function"},
+
   {"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getStakeInfo","outputs":[
     {"internalType":"uint256","name":"amount","type":"uint256"},
     {"internalType":"uint256","name":"startTime","type":"uint256"},
@@ -291,15 +296,17 @@ const ERC20_ABI = [
 ];
 
 /* ============================================================
-   STATE (NO BACKGROUND POLLING)
+   STATE
 ============================================================ */
-let web3;
+let web3 = null;
 let account = null;
-let fixedContract, blgToken, usdtToken;
+let fixedContract = null, blgToken = null, usdtToken = null;
 
 let durationSec = 0;
-let stakeStartSec = 0;
 let countdownTimer = null;
+
+let listenersAttached = false;
+let busy = false;
 
 /* ============================================================
    DOM helpers
@@ -310,6 +317,7 @@ function showTop(msg, isError=false) {
   $("topStatus").className = isError ? "mt-2 text-sm text-red-400" : "mt-2 text-sm text-green-400";
   $("topStatus").innerHTML = msg || "";
 }
+
 function showStatus(msg, isError=false) {
   $("status").className = isError ? "mt-4 text-sm text-red-400" : "mt-4 text-sm text-green-400";
   $("status").innerHTML = msg || "";
@@ -324,59 +332,58 @@ function formatUSDT(baseUnitsStr) {
   return frac ? `${whole}.${frac}` : whole;
 }
 
-function setActionsEnabled(enabled, reason="") {
-  const buyBtn = $("buyBtn");
-  const stakeBtn = $("stakeBtn");
-  buyBtn.disabled = !enabled;
-  stakeBtn.disabled = !enabled;
-  buyBtn.title = enabled ? "" : reason;
-  stakeBtn.title = enabled ? "" : reason;
-
-  // withdraw is separately gated by staking time too
-  if (!enabled) {
-    $("withdrawBtn").disabled = true;
-    $("withdrawBtn").title = reason || "Switch to Polygon to use Withdraw.";
-  }
-}
-
 function setWithdrawDisabled(disabled, tooltip) {
   const btn = $("withdrawBtn");
   btn.disabled = !!disabled;
   btn.title = tooltip || "";
 }
 
-/* ============================================================
-   SAFE REQUEST WRAPPER (prevents “forever pending” requests)
-============================================================ */
-function requestWithTimeout(method, params, ms=2500) {
-  return Promise.race([
-    window.ethereum.request({ method, params }),
-    new Promise((_, reject) => setTimeout(() => reject(new Error(`${method} timed out`)), ms))
-  ]);
+function stopCountdown() {
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = null;
 }
 
 /* ============================================================
-   NETWORK / POLYGON SWITCH (ONLY ON CONNECT)
+   Network helpers (ONLY called on user actions)
 ============================================================ */
-async function ensurePolygonOnce() {
-  const chainId = await requestWithTimeout("eth_chainId", [], 1500).catch(() => null);
+async function getChainId() {
+  if (!window.ethereum) return null;
+  return await window.ethereum.request({ method: "eth_chainId" });
+}
+
+async function updateNetBadge() {
+  const chainId = await getChainId();
+  $("netBadge").textContent = (chainId === POLYGON_CHAIN_ID_HEX)
+    ? "Network: Polygon"
+    : `Network: ${chainId || "--"} (switch to Polygon)`;
+  return chainId === POLYGON_CHAIN_ID_HEX;
+}
+
+async function ensurePolygonInteractive() {
+  if (!window.ethereum) return false;
+
+  const chainId = await getChainId();
   if (chainId === POLYGON_CHAIN_ID_HEX) return true;
 
-  showTop("This app runs on <b>Polygon</b>. We can switch your wallet network now.", false);
+  showTop("This app runs on <b>Polygon</b>. Switch networks to continue.", false);
 
   try {
-    await requestWithTimeout("wallet_switchEthereumChain", [{ chainId: POLYGON_CHAIN_ID_HEX }], 2500);
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: POLYGON_CHAIN_ID_HEX }]
+    });
     return true;
   } catch (e) {
-    // If chain not added, try add
     if (e && e.code === 4902) {
       try {
-        await requestWithTimeout("wallet_addEthereumChain", [POLYGON_PARAMS], 2500);
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [POLYGON_PARAMS]
+        });
         return true;
       } catch (_) {
         showTop(
-          "No worries — adding Polygon was cancelled.<br/>" +
-          "When you’re ready, switch to <b>Polygon</b> in MetaMask to use <b>Buy</b>, <b>Stake</b>, and <b>Withdraw</b>.",
+          "No worries — you cancelled adding Polygon.<br/>When you’re ready, switch to <b>Polygon</b> in MetaMask to use Buy/Stake/Withdraw.",
           true
         );
         return false;
@@ -384,26 +391,15 @@ async function ensurePolygonOnce() {
     }
 
     showTop(
-      "All good — you can keep your current network.<br/>" +
-      "To use this app, please switch to <b>Polygon</b> in MetaMask whenever you’re ready.",
+      "All good — you can stay on your current network.<br/>To use this app, please switch to <b>Polygon</b> in MetaMask whenever you’re ready.",
       true
     );
     return false;
   }
 }
 
-async function updateNetBadgeNoHang() {
-  const chainId = await requestWithTimeout("eth_chainId", [], 1500).catch(() => null);
-  if (!chainId) {
-    $("netBadge").textContent = "Network: --";
-    return false;
-  }
-  $("netBadge").textContent = (chainId === POLYGON_CHAIN_ID_HEX) ? "Network: Polygon" : `Network: ${chainId} (switch to Polygon)`;
-  return chainId === POLYGON_CHAIN_ID_HEX;
-}
-
 /* ============================================================
-   INIT CONTRACTS
+   Contract init
 ============================================================ */
 function initContracts() {
   fixedContract = new web3.eth.Contract(FIXED_ABI, FIXED_CONTRACT_ADDRESS);
@@ -412,136 +408,45 @@ function initContracts() {
 }
 
 /* ============================================================
-   CONNECT
+   Read + UI update (NO background polling)
 ============================================================ */
-async function connectWallet() {
-  if (!window.ethereum) {
-    showTop(`MetaMask not detected. <a class="underline text-blue-400" target="_blank" href="https://metamask.io/download.html">Install MetaMask</a>.`, true);
-    return;
-  }
+async function refreshAll() {
+  if (!account || !fixedContract) return;
 
-  // Try switching (only once, here)
-  const switched = await ensurePolygonOnce();
+  // read static-ish params
+  const price = await fixedContract.methods.BLG_PRICE().call();
+  const reward = await fixedContract.methods.stakingRewardPercent().call();
+  durationSec = Number(await fixedContract.methods.stakingDuration().call());
 
-  try {
-    await requestWithTimeout("eth_requestAccounts", [], 2500);
-    web3 = new Web3(window.ethereum);
+  $("priceBadge").textContent = `Price: ${formatUSDT(price)} USDT / 1 BLG`;
+  $("rewardBadge").textContent = `Reward: ${reward}%`;
+  $("buyHint").textContent = "Buy uses USDT approval, then calls buyBLG(blgAmount). BLG is transferred from the contract to you.";
+  $("stakeHint").textContent = "Stake uses BLG approval, then calls stake(amount). Withdraw unlocks only after staking duration completes.";
 
-    const accounts = await web3.eth.getAccounts();
-    account = accounts && accounts.length ? accounts[0] : null;
-
-    if (!account) {
-      showTop("No wallet account found.", true);
-      return;
-    }
-
-    $("walletAddress").textContent = `Connected: ${shortAddr(account)}`;
-    initContracts();
-
-    const onPolygon = await updateNetBadgeNoHang();
-    if (!onPolygon) {
-      setActionsEnabled(false, "Switch to Polygon to use this feature.");
-      showStatus("Connected — but actions are disabled until you switch to Polygon.", true);
-      return;
-    }
-
-    showTop("");
-    showStatus("Wallet connected.");
-    setActionsEnabled(true);
-
-    await refreshAllOnce();
-
-    // Update UI on changes (NO polling)
-    window.ethereum.removeAllListeners?.("accountsChanged");
-    window.ethereum.removeAllListeners?.("chainChanged");
-
-    window.ethereum.on("accountsChanged", async (accs) => {
-      stopCountdown();
-      account = accs && accs.length ? accs[0] : null;
-      $("walletAddress").textContent = account ? `Connected: ${shortAddr(account)}` : "";
-      if (!account) {
-        showStatus("Disconnected.");
-        setActionsEnabled(false, "Connect wallet first.");
-        return;
-      }
-      await refreshAllOnce();
-    });
-
-    window.ethereum.on("chainChanged", async () => {
-      stopCountdown();
-      const ok = await updateNetBadgeNoHang();
-      if (!ok) {
-        showTop("You’re not on Polygon. Switch to Polygon to use the app features.", true);
-        showStatus("Actions disabled until Polygon is selected.", true);
-        setActionsEnabled(false, "Switch to Polygon to use this feature.");
-        return;
-      }
-      showTop("");
-      setActionsEnabled(true);
-      await refreshAllOnce();
-    });
-
-    if (!switched) {
-      // If they rejected switch, keep the friendly note (but still connected)
-      showStatus("Switch to Polygon to use Buy/Stake/Withdraw.", true);
-    }
-
-  } catch (err) {
-    console.error(err);
-    showTop("Wallet connection failed: " + (err?.message || err), true);
-  }
+  await refreshStakeInfo();
 }
 
-$("connectBtn").addEventListener("click", connectWallet);
+async function refreshStakeInfo() {
+  if (!account || !fixedContract) return;
 
-/* ============================================================
-   REFRESH (ONE-TIME, NO BACKGROUND RPC)
-============================================================ */
-async function refreshAllOnce() {
-  try {
-    const onPolygon = await updateNetBadgeNoHang();
-    if (!onPolygon) {
-      setActionsEnabled(false, "Switch to Polygon to use this feature.");
-      return;
-    }
-    if (!fixedContract || !account) return;
-
-    const price = await fixedContract.methods.BLG_PRICE().call();
-    const reward = await fixedContract.methods.stakingRewardPercent().call();
-    durationSec = Number(await fixedContract.methods.stakingDuration().call());
-
-    $("priceBadge").textContent = `Price: ${formatUSDT(price)} USDT / 1 BLG`;
-    $("rewardBadge").textContent = `Reward: ${reward}%`;
-    $("buyHint").textContent = "Buy uses USDT approval, then calls buyBLG(blgAmount). BLG is transferred from the contract to you.";
-    $("stakeHint").textContent = "Stake uses BLG approval, then calls stake(amount). Withdraw unlocks only after staking duration completes.";
-
-    await refreshStakeUIOnce();
-  } catch (e) {
-    console.error(e);
-    showStatus("Refresh failed: " + (e?.message || e), true);
-  }
-}
-
-async function refreshStakeUIOnce() {
   const info = await fixedContract.methods.getStakeInfo(account).call();
-
   const amountWei = web3.utils.toBN(info.amount || "0");
-  stakeStartSec = Number(info.startTime || 0);
+  const startSec = Number(info.startTime || 0);
   const claimed = !!info.claimed;
 
-  if (amountWei.isZero() || claimed || stakeStartSec === 0) {
+  if (amountWei.isZero() || claimed || startSec === 0) {
+    stopCountdown();
     $("stakedInfo").textContent = "Staked: 0 BLG";
     $("stakeTimestampInfo").textContent = "Stake Timestamp: --";
     $("withdrawCountdown").textContent = "Withdrawal available in: --";
-    stopCountdown();
     setWithdrawDisabled(true, "No active stake to withdraw.");
     return;
   }
 
   $("stakedInfo").textContent = `Staked: ${web3.utils.fromWei(amountWei.toString(),"ether")} BLG`;
-  $("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date(stakeStartSec*1000).toLocaleString()}`;
+  $("stakeTimestampInfo").textContent = `Stake Timestamp: ${new Date(startSec*1000).toLocaleString()}`;
 
-  const unlockAt = stakeStartSec + durationSec;
+  const unlockAt = startSec + durationSec;
   const now = Math.floor(Date.now()/1000);
 
   if (now >= unlockAt) {
@@ -554,14 +459,6 @@ async function refreshStakeUIOnce() {
   }
 }
 
-/* ============================================================
-   LOCAL COUNTDOWN (NO RPC CALLS)
-============================================================ */
-function stopCountdown() {
-  if (countdownTimer) clearInterval(countdownTimer);
-  countdownTimer = null;
-}
-
 function startLocalCountdown(unlockAtSec) {
   stopCountdown();
 
@@ -570,9 +467,9 @@ function startLocalCountdown(unlockAtSec) {
     let rem = unlockAtSec - now;
 
     if (rem <= 0) {
+      stopCountdown();
       $("withdrawCountdown").textContent = "Withdrawal available now!";
       setWithdrawDisabled(false, "Ready to withdraw.");
-      stopCountdown();
       return;
     }
 
@@ -592,13 +489,111 @@ function startLocalCountdown(unlockAtSec) {
 }
 
 /* ============================================================
-   BUY
+   Connect (no loops, no polling)
 ============================================================ */
-$("buyBtn").addEventListener("click", async () => {
+async function connectWallet() {
+  if (!window.ethereum) {
+    showTop(`MetaMask not detected. <a class="underline text-blue-400" target="_blank" href="https://metamask.io/download.html">Install MetaMask</a>.`, true);
+    return;
+  }
+
+  // Switch attempt only on connect click (interactive)
+  await ensurePolygonInteractive();
+
   try {
-    const onPolygon = await updateNetBadgeNoHang();
-    if (!onPolygon) return showTop("Please switch to Polygon to buy BLG.", true);
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+    web3 = new Web3(window.ethereum);
+
+    const accounts = await web3.eth.getAccounts();
+    account = accounts && accounts.length ? accounts[0] : null;
+    if (!account) {
+      showTop("No wallet account found.", true);
+      return;
+    }
+
+    $("walletAddress").textContent = `Connected: ${shortAddr(account)}`;
+    initContracts();
+
+    const onPolygon = await updateNetBadge();
+    if (!onPolygon) {
+      showStatus("Switch to Polygon to use Buy/Stake/Withdraw.", true);
+      setWithdrawDisabled(true, "Switch to Polygon to use Withdraw.");
+      return;
+    }
+
+    showTop("");
+    showStatus("Wallet connected.");
+    await refreshAll();
+
+    // Attach listeners ONCE (prevents multiple duplicate listeners)
+    if (!listenersAttached) {
+      listenersAttached = true;
+
+      window.ethereum.on("accountsChanged", async (accs) => {
+        account = accs && accs.length ? accs[0] : null;
+        $("walletAddress").textContent = account ? `Connected: ${shortAddr(account)}` : "";
+        stopCountdown();
+        if (!account) {
+          showStatus("Disconnected.");
+          setWithdrawDisabled(true, "Connect wallet first.");
+          return;
+        }
+        showStatus("Account changed.");
+        await updateNetBadge();
+        await refreshAll();
+      });
+
+      window.ethereum.on("chainChanged", async () => {
+        stopCountdown();
+        const ok = await updateNetBadge();
+        if (!ok) {
+          showTop("You’re not on Polygon. Switch to Polygon to use the app features.", true);
+          showStatus("Actions disabled until Polygon is selected.", true);
+          setWithdrawDisabled(true, "Switch to Polygon to use Withdraw.");
+          return;
+        }
+        showTop("");
+        showStatus("Network changed to Polygon.");
+        await refreshAll();
+      });
+    }
+  } catch (err) {
+    console.error(err);
+    showTop("Wallet connection failed: " + (err?.message || err), true);
+  }
+}
+
+$("connectBtn").addEventListener("click", () => {
+  if (busy) return;
+  connectWallet();
+});
+
+/* ============================================================
+   Buttons: Buy / Stake / Withdraw (NO background calls)
+============================================================ */
+$("refreshBtn").addEventListener("click", async () => {
+  if (!account || !fixedContract) return showStatus("Connect wallet first.", true);
+  try {
+    const ok = await updateNetBadge();
+    if (!ok) return showTop("Please switch to Polygon to refresh.", true);
+    showStatus("Refreshing...");
+    await refreshAll();
+    showStatus("Refreshed.");
+  } catch (e) {
+    console.error(e);
+    showStatus("Refresh failed: " + (e?.message || e), true);
+  }
+});
+
+$("buyBtn").addEventListener("click", async () => {
+  if (busy) return;
+  busy = true;
+
+  try {
     if (!account) return showStatus("Connect wallet first.", true);
+    const okNet = await ensurePolygonInteractive();
+    await updateNetBadge();
+    if (!okNet) return showStatus("Buy cancelled — switch to Polygon when ready.", true);
 
     const raw = Number($("buyAmount").value);
     const blgAmount = Math.floor(raw);
@@ -617,21 +612,24 @@ $("buyBtn").addEventListener("click", async () => {
     await fixedContract.methods.buyBLG(String(blgAmount)).send({ from: account });
 
     showStatus("Purchase complete.");
-    await refreshAllOnce();
+    await refreshAll();
   } catch (e) {
     console.error(e);
     showStatus("Buy failed: " + (e?.message || e), true);
+  } finally {
+    busy = false;
   }
 });
 
-/* ============================================================
-   STAKE
-============================================================ */
 $("stakeBtn").addEventListener("click", async () => {
+  if (busy) return;
+  busy = true;
+
   try {
-    const onPolygon = await updateNetBadgeNoHang();
-    if (!onPolygon) return showTop("Please switch to Polygon to stake.", true);
     if (!account) return showStatus("Connect wallet first.", true);
+    const okNet = await ensurePolygonInteractive();
+    await updateNetBadge();
+    if (!okNet) return showStatus("Stake cancelled — switch to Polygon when ready.", true);
 
     const amount = Number($("stakeAmount").value);
     if (!amount || amount <= 0) return showStatus("Enter a valid BLG amount to stake.", true);
@@ -648,27 +646,29 @@ $("stakeBtn").addEventListener("click", async () => {
     await fixedContract.methods.stake(stakeWei).send({ from: account });
 
     showStatus("Stake successful.");
-    await refreshAllOnce();
+    await refreshAll();
   } catch (e) {
     console.error(e);
     showStatus("Stake failed: " + (e?.message || e), true);
+  } finally {
+    busy = false;
   }
 });
 
-/* ============================================================
-   WITHDRAW (only enabled after staking time)
-============================================================ */
 $("withdrawBtn").addEventListener("click", async () => {
-  try {
-    const onPolygon = await updateNetBadgeNoHang();
-    if (!onPolygon) return showTop("Please switch to Polygon to withdraw.", true);
-    if (!account) return showStatus("Connect wallet first.", true);
+  if (busy) return;
+  busy = true;
 
+  try {
+    if (!account) return showStatus("Connect wallet first.", true);
     if ($("withdrawBtn").disabled) return;
 
+    const okNet = await ensurePolygonInteractive();
+    await updateNetBadge();
+    if (!okNet) return showStatus("Withdraw cancelled — switch to Polygon when ready.", true);
+
     const ok = confirm(
-      "Are you sure you want to withdraw your stake now?\n\n" +
-      "This will send a transaction to withdraw your staked BLG plus reward."
+      "Are you sure you want to withdraw your stake now?\n\nThis will send a transaction to withdraw your staked BLG plus reward."
     );
     if (!ok) return showStatus("Withdrawal cancelled.");
 
@@ -676,16 +676,17 @@ $("withdrawBtn").addEventListener("click", async () => {
     await fixedContract.methods.withdrawStake().send({ from: account });
 
     showStatus("Withdraw successful.");
-    await refreshAllOnce();
+    await refreshAll();
   } catch (e) {
     console.error(e);
     showStatus("Withdraw failed: " + (e?.message || e), true);
+  } finally {
+    busy = false;
   }
 });
 </script>
 </body>
 </html>
-
 		
     <!-- end about -->
     <!-- works -->
@@ -741,6 +742,7 @@ $("withdrawBtn").addEventListener("click", async () => {
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
