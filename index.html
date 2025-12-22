@@ -239,7 +239,20 @@ let fixedContract, blgToken, usdtToken;
 const FIXED_CONTRACT_ABI = [
   { "inputs": [{ "internalType": "uint256", "name": "blgAmount", "type": "uint256" }], "name": "buyBLG", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
   { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "stake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
-  { "inputs": [], "name": "withdrawStake", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
+  { "inputs": [], "name": "withdrawStake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
+
+  /* ✅ ADDED: mapping getter so UI can pre-check before withdraw */
+  {
+    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "name": "stakes",
+    "outputs": [
+      { "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "internalType": "uint256", "name": "startTime", "type": "uint256" },
+      { "internalType": "bool", "name": "claimed", "type": "bool" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
 ];
 
 const APPROVE_ABI = [
@@ -265,6 +278,32 @@ function showStatusHtmlSafe(html, isError = false) {
   const statusDiv = document.getElementById("status");
   statusDiv.innerHTML = html || "";
   statusDiv.className = isError ? "mt-4 text-sm text-red-400" : "mt-4 text-sm text-green-400";
+}
+
+function prettifyTxError(err) {
+  // MetaMask reject
+  if (err && (err.code === 4001 || String(err.message || "").toLowerCase().includes("user rejected"))) {
+    return "Transaction cancelled in wallet.";
+  }
+
+  // Try common places providers store revert reasons
+  const candidates = [
+    err?.data?.message,
+    err?.error?.message,
+    err?.message
+  ].filter(Boolean).map(String);
+
+  for (const c of candidates) {
+    const m = c.match(/revert(?:ed)?(?::)?\s*(.*)$/i);
+    if (m && m[1]) return `Transaction reverted: ${m[1].trim()}`;
+    if (c.toLowerCase().includes("reverted without reason")) return "Transaction reverted (no reason returned by RPC).";
+  }
+
+  return "Transaction failed (reverted).";
+}
+
+function txHashFromError(err) {
+  return err?.receipt?.transactionHash || err?.transactionHash || "";
 }
 
 function shortAddr(a) {
@@ -427,7 +466,9 @@ async function buyBLG() {
     showStatus("BLG purchase successful.");
   } catch (error) {
     console.error(error);
-    showStatus("Purchase failed: " + (error?.message || error), true);
+    const msg = prettifyTxError(error);
+    const hash = txHashFromError(error);
+    showStatus(hash ? `${msg} Tx: ${hash}` : msg, true);
   }
 }
 
@@ -455,10 +496,13 @@ async function stakeTokens() {
     showStatus("Staking successful.");
   } catch (error) {
     console.error(error);
-    showStatus("Staking failed: " + (error?.message || error), true);
+    const msg = prettifyTxError(error);
+    const hash = txHashFromError(error);
+    showStatus(hash ? `${msg} Tx: ${hash}` : msg, true);
   }
 }
 
+/* ✅ UPDATED: withdraw pre-check + pretty errors */
 async function withdrawStake() {
   if (!(await ensurePolygon())) return;
   if (!web3 || !account || !fixedContract) {
@@ -467,16 +511,30 @@ async function withdrawStake() {
   }
 
   try {
+    // Pre-check stake status to prevent pointless reverts
+    const s = await fixedContract.methods.stakes(account).call();
+    const amount = s?.amount ? BigInt(s.amount) : 0n;
+    const claimed = !!s?.claimed;
+
+    if (amount === 0n) {
+      showStatus("Nothing staked to withdraw.", true);
+      return;
+    }
+
+    if (claimed) {
+      showStatus("This stake was already claimed/withdrawn.", true);
+      return;
+    }
+
+    showStatus("Sending withdraw transaction...");
+
     await fixedContract.methods.withdrawStake().send({ from: account });
     showStatus("Withdraw successful.");
   } catch (error) {
     console.error(error);
-    const msg = (error?.message || "").toLowerCase();
-    if (msg.includes("early withdrawal")) {
-      showStatus("Early withdrawal rejected by contract. Wait until staking duration completes.", true);
-    } else {
-      showStatus("Withdraw failed: " + (error?.message || error), true);
-    }
+    const msg = prettifyTxError(error);
+    const hash = txHashFromError(error);
+    showStatus(hash ? `${msg} Tx: ${hash}` : msg, true);
   }
 }
 
@@ -534,7 +592,6 @@ window.addEventListener("load", async () => {
 </script>
 </body>
 </html>
-
 		
     <!-- end about -->
     <!-- works -->
@@ -590,6 +647,7 @@ window.addEventListener("load", async () => {
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
