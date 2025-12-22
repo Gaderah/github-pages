@@ -165,6 +165,7 @@
   <meta http-equiv="Expires" content="0" />
   <title>BluGo Token Sale & Staking</title>
 
+  <!-- SAME VERSIONS AS YOUR WORKING FILE -->
   <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
@@ -298,7 +299,7 @@ async function ensurePolygon() {
   if (!window.ethereum) {
     setButtonsEnabled(false);
     showStatusHtmlSafe(
-      `MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`,
+      `MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" rel="noopener noreferrer" class="underline text-blue-400">Install MetaMask</a>.`,
       true
     );
     return false;
@@ -309,12 +310,13 @@ async function ensurePolygon() {
 
   if (chainId !== REQUIRED_CHAIN_ID_DEC) {
     setButtonsEnabled(false);
-    // text only (safe)
     showStatus(`Wrong network (chainId ${chainId}). Please switch to Polygon Mainnet (137).`, true);
     return false;
   }
 
-  setButtonsEnabled(true);
+  // Only enable actions when connected AND contracts are ready
+  const ready = !!(account && web3 && fixedContract && blgToken && usdtToken);
+  setButtonsEnabled(ready);
   return true;
 }
 
@@ -367,7 +369,7 @@ async function switchToPolygon() {
 async function connectWallet() {
   if (!window.ethereum) {
     showStatusHtmlSafe(
-      `MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`,
+      `MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" rel="noopener noreferrer" class="underline text-blue-400">Install MetaMask</a>.`,
       true
     );
     return;
@@ -385,13 +387,16 @@ async function connectWallet() {
     web3 = new Web3(window.ethereum);
     document.getElementById("walletAddress").textContent = `Connected: ${shortAddr(account)}`;
 
+    // init contracts FIRST so "ready" can become true
+    initContracts();
+
     const ok = await ensurePolygon();
     if (!ok) return;
 
-    initContracts();
     showStatus("Wallet connected.");
   } catch (err) {
     console.error("Wallet connection error:", err);
+    setButtonsEnabled(false);
     showStatus("Wallet connection failed: " + (err?.message || err), true);
   }
 }
@@ -412,7 +417,12 @@ async function buyBLG() {
   const usdtAmount = BigInt(blgAmount) * BigInt(pricePerBLG);
 
   try {
-    await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, usdtAmount.toString()).send({ from: account });
+    // Avoid unnecessary approvals
+    const allowance = await usdtToken.methods.allowance(account, FIXED_CONTRACT_ADDRESS).call();
+    if (BigInt(allowance) < usdtAmount) {
+      await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, usdtAmount.toString()).send({ from: account });
+    }
+
     await fixedContract.methods.buyBLG(String(blgAmount)).send({ from: account });
     showStatus("BLG purchase successful.");
   } catch (error) {
@@ -428,9 +438,14 @@ async function stakeTokens() {
     return;
   }
 
-  // FIX: Avoid parseFloat precision issues
   const amt = document.getElementById("stakeAmount").value.trim();
   if (!amt || Number(amt) <= 0) return;
+
+  // Basic format guard: up to 18 decimals, no commas/scientific notation
+  if (!/^\d+(\.\d{1,18})?$/.test(amt)) {
+    showStatus("Invalid amount format. Use up to 18 decimals (no commas).", true);
+    return;
+  }
 
   const stakeAmount = web3.utils.toWei(amt, "ether");
 
@@ -456,7 +471,12 @@ async function withdrawStake() {
     showStatus("Withdraw successful.");
   } catch (error) {
     console.error(error);
-    showStatus("Withdraw failed: " + (error?.message || error), true);
+    const msg = (error?.message || "").toLowerCase();
+    if (msg.includes("early withdrawal")) {
+      showStatus("Early withdrawal rejected by contract. Wait until staking duration completes.", true);
+    } else {
+      showStatus("Withdraw failed: " + (error?.message || error), true);
+    }
   }
 }
 
@@ -466,7 +486,7 @@ window.addEventListener("load", async () => {
 
   if (!window.ethereum) {
     showStatusHtmlSafe(
-      `MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`,
+      `MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" rel="noopener noreferrer" class="underline text-blue-400">Install MetaMask</a>.`,
       true
     );
     return;
@@ -475,19 +495,26 @@ window.addEventListener("load", async () => {
   web3 = new Web3(window.ethereum);
   await updateNetLine();
 
-  const ok = await ensurePolygon();
-
   try {
     const accounts = await window.ethereum.request({ method: "eth_accounts" });
     if (accounts && accounts.length) {
       account = accounts[0];
       document.getElementById("walletAddress").textContent = `Connected: ${shortAddr(account)}`;
-      if (ok) {
-        initContracts();
-      }
+
+      initContracts();
+
+      const okNow = await ensurePolygon();
+      if (!okNow) return;
+
+      showStatus("Wallet detected. Ready.");
+    } else {
+      await ensurePolygon(); // keeps buttons disabled if not ready
+      showStatus("Connect wallet. (Polygon Mainnet only)", false);
     }
   } catch (err) {
     console.error("Error getting accounts:", err);
+    setButtonsEnabled(false);
+    showStatus("Could not read wallet accounts. Open MetaMask and refresh.", true);
   }
 
   window.ethereum.on("accountsChanged", async (accounts) => {
@@ -495,18 +522,19 @@ window.addEventListener("load", async () => {
     document.getElementById("walletAddress").textContent = account ? `Connected: ${shortAddr(account)}` : "";
     showStatus("Wallet changed.");
 
-    const ok2 = await ensurePolygon();
-    if (account && web3 && ok2) initContracts();
+    if (account && web3) initContracts();
+    await ensurePolygon();
   });
 
   window.ethereum.on("chainChanged", async () => {
-    const ok3 = await ensurePolygon();
-    if (account && web3 && ok3) initContracts();
+    await ensurePolygon();
+    if (account && web3 && fixedContract) showStatus("Network changed.", false);
   });
 });
 </script>
 </body>
 </html>
+
 		
     <!-- end about -->
     <!-- works -->
@@ -562,6 +590,7 @@ window.addEventListener("load", async () => {
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
