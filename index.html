@@ -165,7 +165,6 @@
   <meta http-equiv="Expires" content="0" />
   <title>BluGo Token Sale & Staking</title>
 
-  <!-- SAME VERSIONS AS YOUR WORKING FILE -->
   <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
@@ -190,7 +189,12 @@
     <div class="grid md:grid-cols-2 gap-4">
       <div class="bg-gray-800 p-4 rounded">
         <h2 class="text-xl font-bold mb-2">Buy BLG</h2>
-        <input type="number" id="buyAmount" placeholder="Amount of BLG" class="w-full p-2 text-black rounded mb-2">
+
+        <!-- Enforce whole tokens (contract expects uint256 whole BLG) -->
+        <input type="number" id="buyAmount" min="1" step="1"
+               placeholder="Amount of BLG (whole tokens)"
+               class="w-full p-2 text-black rounded mb-2">
+
         <button id="buyBtn" onclick="buyBLG()" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full">
           Buy
         </button>
@@ -248,10 +252,17 @@ function initContracts() {
   usdtToken     = new web3.eth.Contract(APPROVE_ABI, USDT_TOKEN_ADDRESS);
 }
 
-/* ===== UI helpers ===== */
+/* ===== UI helpers (SECURE) ===== */
 function showStatus(message, isError = false) {
   const statusDiv = document.getElementById("status");
-  statusDiv.innerHTML = message || "";
+  statusDiv.textContent = message || "";
+  statusDiv.className = isError ? "mt-4 text-sm text-red-400" : "mt-4 text-sm text-green-400";
+}
+
+// Use ONLY for hardcoded HTML you control (MetaMask install link)
+function showStatusHtmlSafe(html, isError = false) {
+  const statusDiv = document.getElementById("status");
+  statusDiv.innerHTML = html || "";
   statusDiv.className = isError ? "mt-4 text-sm text-red-400" : "mt-4 text-sm text-green-400";
 }
 
@@ -286,7 +297,10 @@ async function updateNetLine() {
 async function ensurePolygon() {
   if (!window.ethereum) {
     setButtonsEnabled(false);
-    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
+    showStatusHtmlSafe(
+      `MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`,
+      true
+    );
     return false;
   }
 
@@ -295,7 +309,8 @@ async function ensurePolygon() {
 
   if (chainId !== REQUIRED_CHAIN_ID_DEC) {
     setButtonsEnabled(false);
-    showStatus(`Wrong network (chainId ${chainId}). Please switch to <b>Polygon Mainnet (137)</b>.`, true);
+    // text only (safe)
+    showStatus(`Wrong network (chainId ${chainId}). Please switch to Polygon Mainnet (137).`, true);
     return false;
   }
 
@@ -320,7 +335,6 @@ async function switchToPolygon() {
     await ensurePolygon();
     showStatus("Switched to Polygon.");
   } catch (e) {
-    // 4902 = chain not added
     if (e && e.code === 4902) {
       try {
         showStatus("Adding Polygon network...");
@@ -349,10 +363,13 @@ async function switchToPolygon() {
   }
 }
 
-/* ===== Connect wallet (fixed global account assignment) ===== */
+/* ===== Connect wallet ===== */
 async function connectWallet() {
   if (!window.ethereum) {
-    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
+    showStatusHtmlSafe(
+      `MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`,
+      true
+    );
     return;
   }
 
@@ -379,7 +396,7 @@ async function connectWallet() {
   }
 }
 
-/* ===== Your original functions, but gated by Polygon lock ===== */
+/* ===== Actions ===== */
 async function buyBLG() {
   if (!(await ensurePolygon())) return;
   if (!web3 || !account || !fixedContract || !usdtToken) {
@@ -387,15 +404,12 @@ async function buyBLG() {
     return;
   }
 
-  const amount = parseFloat(document.getElementById("buyAmount").value);
-  if (isNaN(amount) || amount <= 0) return;
-
-  // Keep your original intent, but do it safely for whole-token buys:
-  // Contract expects blgAmount in WHOLE tokens (uint256), not wei.
-  const blgAmount = Math.floor(amount);
+  const raw = Number(document.getElementById("buyAmount").value);
+  const blgAmount = Number.isFinite(raw) ? Math.floor(raw) : 0;
+  if (!blgAmount || blgAmount <= 0) return;
 
   const pricePerBLG = 2 * 10**6; // 2 USDT (6 decimals)
-  const usdtAmount = BigInt(blgAmount) * BigInt(pricePerBLG); // exact base units
+  const usdtAmount = BigInt(blgAmount) * BigInt(pricePerBLG);
 
   try {
     await usdtToken.methods.approve(FIXED_CONTRACT_ADDRESS, usdtAmount.toString()).send({ from: account });
@@ -414,10 +428,11 @@ async function stakeTokens() {
     return;
   }
 
-  const amount = parseFloat(document.getElementById("stakeAmount").value);
-  if (isNaN(amount) || amount <= 0) return;
+  // FIX: Avoid parseFloat precision issues
+  const amt = document.getElementById("stakeAmount").value.trim();
+  if (!amt || Number(amt) <= 0) return;
 
-  const stakeAmount = web3.utils.toWei(amount.toString(), "ether");
+  const stakeAmount = web3.utils.toWei(amt, "ether");
 
   try {
     await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmount.toString()).send({ from: account });
@@ -445,25 +460,29 @@ async function withdrawStake() {
   }
 }
 
-/* ===== Load behavior matches old: passive ===== */
+/* ===== Load behavior: passive ===== */
 window.addEventListener("load", async () => {
   setButtonsEnabled(false);
 
   if (!window.ethereum) {
-    showStatus(`MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`, true);
+    showStatusHtmlSafe(
+      `MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" class="underline text-blue-400">Install MetaMask</a>.`,
+      true
+    );
     return;
   }
 
   web3 = new Web3(window.ethereum);
   await updateNetLine();
-  await ensurePolygon();
+
+  const ok = await ensurePolygon();
 
   try {
     const accounts = await window.ethereum.request({ method: "eth_accounts" });
     if (accounts && accounts.length) {
       account = accounts[0];
       document.getElementById("walletAddress").textContent = `Connected: ${shortAddr(account)}`;
-      if (await ensurePolygon()) {
+      if (ok) {
         initContracts();
       }
     }
@@ -475,12 +494,14 @@ window.addEventListener("load", async () => {
     account = (accounts && accounts.length) ? accounts[0] : null;
     document.getElementById("walletAddress").textContent = account ? `Connected: ${shortAddr(account)}` : "";
     showStatus("Wallet changed.");
-    if (account && web3 && (await ensurePolygon())) initContracts();
+
+    const ok2 = await ensurePolygon();
+    if (account && web3 && ok2) initContracts();
   });
 
   window.ethereum.on("chainChanged", async () => {
-    await ensurePolygon();
-    if (account && web3 && (await ensurePolygon())) initContracts();
+    const ok3 = await ensurePolygon();
+    if (account && web3 && ok3) initContracts();
   });
 });
 </script>
@@ -541,6 +562,7 @@ window.addEventListener("load", async () => {
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
