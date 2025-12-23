@@ -204,9 +204,15 @@
       <div class="bg-gray-800 p-4 rounded">
         <h2 class="text-xl font-bold mb-2">Stake BLG</h2>
         <input type="number" id="stakeAmount" placeholder="Amount to Stake" class="w-full p-2 text-black rounded mb-2">
+
         <button id="stakeBtn" onclick="stakeTokens()" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded w-full">
           Stake
         </button>
+
+        <!-- ✅ Added: clear stake restriction message -->
+        <div id="stakeRestrictionMsg" class="mt-2 text-xs text-amber-300 hidden">
+          Already staked — withdraw after unlock.
+        </div>
 
         <!-- ✅ Small UI line (Stake status) -->
         <div class="mt-3 text-xs text-gray-300 space-y-1">
@@ -243,7 +249,7 @@ const REQUIRED_CHAIN_ID_HEX = "0x89";
 /* ===== Contracts ===== */
 let fixedContract, blgToken, usdtToken;
 
-/* ===== ABIs (UPDATED #1: added stakingDuration, stakeTimestamp, canWithdraw) ===== */
+/* ===== ABIs (UPDATED: added stakingDuration, stakeTimestamp, canWithdraw) ===== */
 const FIXED_CONTRACT_ABI = [
   { "inputs": [{ "internalType": "uint256", "name": "blgAmount", "type": "uint256" }], "name": "buyBLG", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
   { "inputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }], "name": "stake", "outputs": [], "stateMutability": "nonpayable", "type": "function" },
@@ -261,7 +267,6 @@ const FIXED_CONTRACT_ABI = [
     "type": "function"
   },
 
-  // ✅ Added per contract
   { "inputs": [], "name": "stakingDuration", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
   { "inputs": [{ "internalType": "address", "name": "", "type": "address" }], "name": "stakeTimestamp", "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
   { "inputs": [{ "internalType": "address", "name": "user", "type": "address" }], "name": "canWithdraw", "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }], "stateMutability": "view", "type": "function" }
@@ -323,6 +328,19 @@ function setButtonsEnabled(enabled) {
   });
 }
 
+function setStakeEnabled(enabled) {
+  const b = document.getElementById("stakeBtn");
+  b.disabled = !enabled;
+  b.classList.toggle("opacity-50", !enabled);
+  b.classList.toggle("cursor-not-allowed", !enabled);
+}
+
+function setStakeRestrictionVisible(visible) {
+  const el = document.getElementById("stakeRestrictionMsg");
+  if (!el) return;
+  el.classList.toggle("hidden", !visible);
+}
+
 async function getChainIdDec() {
   const chainHex = await window.ethereum.request({ method: "eth_chainId" });
   return parseInt(chainHex, 16);
@@ -348,6 +366,7 @@ function setStakeLines({ amountStr="--", startStr="--", unlockStr="--", withdraw
 async function ensurePolygon() {
   if (!window.ethereum) {
     setButtonsEnabled(false);
+    setStakeRestrictionVisible(false);
     showStatusHtmlSafe(
       `MetaMask not detected. <a href="https://metamask.io/download.html" target="_blank" rel="noopener noreferrer" class="underline text-blue-400">Install MetaMask</a>.`,
       true
@@ -360,6 +379,7 @@ async function ensurePolygon() {
 
   if (chainId !== REQUIRED_CHAIN_ID_DEC) {
     setButtonsEnabled(false);
+    setStakeRestrictionVisible(false);
     showStatus(`Wrong network (chainId ${chainId}). Please switch to Polygon Mainnet (137).`, true);
     return false;
   }
@@ -384,7 +404,7 @@ async function switchToPolygon() {
     });
 
     await ensurePolygon();
-    await updateWithdrawLockUI(); // ✅ Update #3
+    await updateWithdrawLockUI(); // updates withdraw + stake lines + stake disable
     showStatus("Switched to Polygon.");
   } catch (e) {
     if (e && e.code === 4902) {
@@ -402,7 +422,7 @@ async function switchToPolygon() {
         });
 
         await ensurePolygon();
-        await updateWithdrawLockUI(); // ✅ Update #3
+        await updateWithdrawLockUI();
         showStatus("Polygon added & selected.");
       } catch (addErr) {
         console.error(addErr);
@@ -444,48 +464,67 @@ async function connectWallet() {
     if (!ok) return;
 
     showStatus("Wallet connected.");
-    await updateWithdrawLockUI(); // ✅ Update #3
+    await updateWithdrawLockUI(); // updates withdraw + stake lines + stake disable
   } catch (err) {
     console.error("Wallet connection error:", err);
     setButtonsEnabled(false);
+    setStakeRestrictionVisible(false);
     showStatus("Wallet connection failed: " + (err?.message || err), true);
   }
 }
 
 /* =========================
-   ✅ Update #2: Withdraw lock UI
+   Updates:
    - disables withdraw until canWithdraw(account) == true
-   - also updates the 4 small stake lines
+   - updates stake lines (amount/start/unlock/withdrawable)
+   - disables STAKE when stakes(account).amount > 0 and shows message
 ========================= */
 async function updateWithdrawLockUI() {
-  const btn = document.getElementById("withdrawBtn");
-  if (!btn) return;
+  const withdrawBtn = document.getElementById("withdrawBtn");
+  const stakeBtn = document.getElementById("stakeBtn");
 
-  // Safe default
-  btn.disabled = true;
-  btn.classList.add("opacity-50", "cursor-not-allowed");
-  setStakeLines({}); // reset to "--"
+  // safe defaults
+  if (withdrawBtn) {
+    withdrawBtn.disabled = true;
+    withdrawBtn.classList.add("opacity-50", "cursor-not-allowed");
+  }
+  if (stakeBtn) setStakeEnabled(false);
+  setStakeRestrictionVisible(false);
+  setStakeLines({});
 
   try {
-    if (!account || !fixedContract) return;
+    if (!account || !fixedContract || !web3) return;
 
-    // Pull core stake
     const s = await fixedContract.methods.stakes(account).call();
     const amountWei = s?.amount ? BigInt(s.amount) : 0n;
-    const startTime = s?.startTime ? Number(s.startTime) : 0;
     const claimed = !!s?.claimed;
 
+    // Disable STAKE if currently staked (amount > 0 and not claimed)
+    const hasActiveStake = (amountWei > 0n && !claimed);
+
+    if (hasActiveStake) {
+      setStakeEnabled(false);
+      setStakeRestrictionVisible(true); // "Already staked — withdraw after unlock."
+    } else {
+      // only enable stake if normal readiness is satisfied
+      const ready = !!(account && web3 && fixedContract && blgToken && usdtToken);
+      setStakeEnabled(ready);
+      setStakeRestrictionVisible(false);
+    }
+
+    // If no stake or claimed, show lines and keep withdraw disabled
+    const amountHuman = amountWei === 0n ? "0" : web3.utils.fromWei(amountWei.toString(), "ether");
     if (amountWei === 0n || claimed) {
       setStakeLines({
-        amountStr: amountWei === 0n ? "0" : (web3 ? web3.utils.fromWei(amountWei.toString(), "ether") : "--"),
-        startStr: startTime ? new Date(startTime * 1000).toLocaleString() : "--",
+        amountStr: amountHuman,
+        startStr: s?.startTime ? new Date(Number(s.startTime) * 1000).toLocaleString() : "--",
         unlockStr: "--",
         withdrawableStr: "false"
       });
       return;
     }
 
-    // Get duration + timestamp + canWithdraw
+    // Compute unlock and withdrawable
     const [dur, ts, withdrawable] = await Promise.all([
       fixedContract.methods.stakingDuration().call(),
       fixedContract.methods.stakeTimestamp(account).call(),
@@ -496,8 +535,6 @@ async function updateWithdrawLockUI() {
     const stakeTsSec = Number(ts);
     const unlockAtMs = (stakeTsSec + durationSec) * 1000;
 
-    const amountHuman = web3.utils.fromWei(amountWei.toString(), "ether");
-
     setStakeLines({
       amountStr: amountHuman,
       startStr: stakeTsSec ? new Date(stakeTsSec * 1000).toLocaleString() : "--",
@@ -505,17 +542,18 @@ async function updateWithdrawLockUI() {
       withdrawableStr: String(!!withdrawable)
     });
 
-    if (withdrawable) {
-      btn.disabled = false;
-      btn.classList.remove("opacity-50", "cursor-not-allowed");
-    } else {
-      btn.disabled = true;
-      btn.classList.add("opacity-50", "cursor-not-allowed");
+    // Withdraw button enable/disable
+    if (withdrawBtn) {
+      if (withdrawable) {
+        withdrawBtn.disabled = false;
+        withdrawBtn.classList.remove("opacity-50", "cursor-not-allowed");
+      } else {
+        withdrawBtn.disabled = true;
+        withdrawBtn.classList.add("opacity-50", "cursor-not-allowed");
+      }
     }
   } catch (e) {
-    // Keep disabled if anything fails
-    btn.disabled = true;
-    btn.classList.add("opacity-50", "cursor-not-allowed");
+    // keep safe defaults
   }
 }
 
@@ -557,6 +595,18 @@ async function stakeTokens() {
     return;
   }
 
+  // Hard guard: if already staked, block the call too (even if button somehow enabled)
+  try {
+    const s = await fixedContract.methods.stakes(account).call();
+    const amountWei = s?.amount ? BigInt(s.amount) : 0n;
+    const claimed = !!s?.claimed;
+    if (amountWei > 0n && !claimed) {
+      showStatus("Already staked — withdraw after unlock.", true);
+      await updateWithdrawLockUI();
+      return;
+    }
+  } catch {}
+
   const amt = document.getElementById("stakeAmount").value.trim();
   if (!amt || Number(amt) <= 0) return;
 
@@ -571,8 +621,7 @@ async function stakeTokens() {
     await blgToken.methods.approve(FIXED_CONTRACT_ADDRESS, stakeAmount.toString()).send({ from: account });
     await fixedContract.methods.stake(stakeAmount.toString()).send({ from: account });
     showStatus("Staking successful.");
-
-    await updateWithdrawLockUI(); // ✅ Update #3 (after successful stake)
+    await updateWithdrawLockUI();
   } catch (error) {
     console.error(error);
     const msg = prettifyTxError(error);
@@ -589,7 +638,6 @@ async function withdrawStake() {
   }
 
   try {
-    // ✅ Prevent click if not withdrawable (UI should already disable, but double check)
     const withdrawable = await fixedContract.methods.canWithdraw(account).call();
     if (!withdrawable) {
       showStatus("Withdraw is locked until staking duration completes.", true);
@@ -600,8 +648,7 @@ async function withdrawStake() {
     showStatus("Sending withdraw transaction...");
     await fixedContract.methods.withdrawStake().send({ from: account });
     showStatus("Withdraw successful.");
-
-    await updateWithdrawLockUI(); // refresh status after withdraw
+    await updateWithdrawLockUI();
   } catch (error) {
     console.error(error);
     const msg = prettifyTxError(error);
@@ -613,7 +660,8 @@ async function withdrawStake() {
 /* ===== Load behavior: passive ===== */
 window.addEventListener("load", async () => {
   setButtonsEnabled(false);
-  setStakeLines({}); // init
+  setStakeRestrictionVisible(false);
+  setStakeLines({});
 
   if (!window.ethereum) {
     showStatusHtmlSafe(
@@ -638,15 +686,16 @@ window.addEventListener("load", async () => {
       if (!okNow) return;
 
       showStatus("Wallet detected. Ready.");
-      await updateWithdrawLockUI(); // ✅ Update #3
+      await updateWithdrawLockUI();
     } else {
       await ensurePolygon();
       showStatus("Connect wallet. (Polygon Mainnet only)", false);
-      await updateWithdrawLockUI(); // keeps withdraw disabled + lines reset
+      await updateWithdrawLockUI();
     }
   } catch (err) {
     console.error("Error getting accounts:", err);
     setButtonsEnabled(false);
+    setStakeRestrictionVisible(false);
     showStatus("Could not read wallet accounts. Open MetaMask and refresh.", true);
   }
 
@@ -657,12 +706,12 @@ window.addEventListener("load", async () => {
 
     if (account && web3) initContracts();
     await ensurePolygon();
-    await updateWithdrawLockUI(); // ✅ Update #3
+    await updateWithdrawLockUI();
   });
 
   window.ethereum.on("chainChanged", async () => {
     await ensurePolygon();
-    await updateWithdrawLockUI(); // ✅ Update #3
+    await updateWithdrawLockUI();
     if (account && web3 && fixedContract) showStatus("Network changed.", false);
   });
 });
@@ -725,6 +774,7 @@ window.addEventListener("load", async () => {
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
