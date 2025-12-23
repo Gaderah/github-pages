@@ -165,9 +165,31 @@
   <meta http-equiv="Expires" content="0" />
   <title>BluGo Token Sale & Staking</title>
 
+  <!-- ✅ SECURITY HEAD UPDATES -->
+  <meta name="referrer" content="no-referrer" />
+  <!-- Best as real HTTP headers, but safe to include here on GitHub Pages -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <meta http-equiv="X-Frame-Options" content="DENY" />
+  <!-- CSP: inline script requires 'unsafe-inline'. Best practice is to move JS into app.js and remove it. -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    base-uri 'self';
+    object-src 'none';
+    frame-ancestors 'none';
+    form-action 'self';
+    img-src 'self' data:;
+    connect-src 'self' https://polygon-rpc.com https://*.infura.io https://*.alchemy.com;
+    script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+    style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+    font-src 'self' data:;
+    upgrade-insecure-requests;
+  " />
+  <!-- ✅ END SECURITY HEAD UPDATES -->
+
   <!-- SAME VERSIONS AS YOUR WORKING FILE -->
-  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- (Optional hardening) Add integrity="" hashes once you generate SRI for these exact CDN files -->
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js" crossorigin="anonymous"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" crossorigin="anonymous">
 </head>
 
 <body class="bg-gray-900 text-white font-sans">
@@ -718,7 +740,7 @@ window.addEventListener("load", async () => {
 </script>
 </body>
 </html>
-
+		
 		
     <!-- end about -->
     <!-- works -->
@@ -774,28 +796,4 @@ window.addEventListener("load", async () => {
       <script src="js/custom.js "></script>
    </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
