@@ -737,6 +737,28 @@ window.addEventListener("load", async () => {
     if (account && web3 && fixedContract) showStatus("Network changed.", false);
   });
 });
+
+	document.addEventListener("DOMContentLoaded", () => {
+  const video = document.getElementById("how-Blg-WorksVideo");
+  if (!video) return;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      });
+    },
+    {
+      threshold: 0.6 // 60% visible before autoplay
+    }
+  );
+
+  observer.observe(video);
+});
 </script>
 </body>
 </html>
@@ -757,7 +779,13 @@ window.addEventListener("load", async () => {
                 <div class="col-md-12">
                     <div class="works_vedio">
                         <figure>
-  <video class="img_responsive" controls playsinline>
+  <video
+    id="howBlgWorksVideo"
+    class="img_responsive"
+    muted
+    playsinline
+    preload="metadata"
+  >
     <source src="images/How-buying-BLG-works.avi" type="video/avi">
     Your browser does not support the video tag.
   </video>
@@ -801,6 +829,7 @@ window.addEventListener("load", async () => {
       <script src="js/custom.js "></script>
    </body>
 </html>
+
 
 
 
