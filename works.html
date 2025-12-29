@@ -118,7 +118,32 @@
       <script src="js/bootstrap.bundle.min.js"></script>
       <script src="js/jquery-3.0.0.min.js"></script>
       <script src="js/custom.js"></script>
+
+      <script>
+document.addEventListener("DOMContentLoaded", () => {
+  const video = document.getElementById("howBlgWorksVideo");
+  if (!video) return;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      });
+    },
+    {
+      threshold: 0.6 // 60% visible
+    }
+  );
+
+  observer.observe(video);
+});
+</script>
    </body>
 </html>
+
 
 
